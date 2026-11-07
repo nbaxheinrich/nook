@@ -9,14 +9,20 @@ Wayland and two monitors (one rotated 90°). The scripts also handle Ubuntu/Kubu
 and openSUSE.
 
 ```bash
-git clone https://github.com/Himmelsw4nderer/hackmachine.git && cd hackmachine
-./install.sh                  # packages (sudo) + theme + login screen (sudo)
-./install.sh --no-deps        # theme only, no sudo (no login screen either)
+git clone https://github.com/nookware/nook.git && cd nook
+./install.sh                  # everything: packages (sudo), Plasma theme, nook-tile (Hyprland), login screen (sudo)
+./install.sh --no-deps        # no sudo: Plasma theme and nook-tile configs, no packages, no login screen
+./install.sh --no-tile        # Plasma only        (--no-plasma: nook-tile + login screen only)
+./install.sh --pastel         # login screen in the cocoa Plasma look instead of Ramen Sign
 ./scripts/sddm.sh             # just the login screen, e.g. after --no-deps
 ./scripts/uninstall.sh        # back to how things were before the first install
 ```
 
-Options: `--no-sddm` leaves the login screen alone. The rest are passed through to `scripts/apply.sh`:
+`./install.sh` runs `scripts/deps.sh` → `scripts/apply.sh` → `tile/install.sh` → `scripts/sddm.sh`. Each can also run alone.
+Without Plasma installed (Ubuntu with GNOME, say), the Plasma part is skipped and you get nook-tile and the login screen.
+nook-tile needs Fedora/Nobara 44+ or Ubuntu 26.04+; elsewhere it reports why and the rest still installs. See [tile/README.md](tile/README.md).
+
+Options: `--no-sddm` leaves the login screen alone, `--no-tile` / `--no-plasma` skip a part. The rest are passed through to `scripts/apply.sh`:
 `--no-panel` keeps your panels, `--no-widgets` skips the desktop widgets, `--no-shell` leaves
 your shell (and the command-line tools) alone, `--no-shortcuts` skips the key bindings, `--no-icons` keeps
 your icon theme, `--no-cursor` keeps your cursor.
@@ -36,7 +42,7 @@ your icon theme, `--no-cursor` keeps your cursor.
 | **Desktop widgets** | Three custom Plasma widgets are placed on **every connected screen**, in the space the wallpaper leaves free. Everything sits on Plasma's 16px widget grid, and the wallpaper's cards are snapped to the same grid, so the widget frames line up exactly with the cheat-sheet and whoami cards, with the same 32px gaps. On landscape screens: clock and apps level with the cheat-sheet, the system card below them from the whoami card's top to above the banner. On portrait screens: stacked between the cards and the banner, as wide as the cards. `TIME // LOCAL` is a big clock drawn with `#` in monospace, one pastel per digit, with date, ISO week and day of month. `SYS // LIVE` shows CPU/GPU/RAM/disk as `[████░░]` bars with temperatures, network up/down as sparklines, and uptime. `APPS // PINNED` has numbered app tiles that scale with the card; its footer opens the taskbar's app launcher. |
 | **Tray** | Only network, sound, microphone and battery stay visible. Everything else, Plasma's own entries and app icons alike, goes into the `^` popup. `nook-tray` runs at login and hides tray icons from apps that start later. Each entry is hidden only the first time it appears, so anything you set to "Always shown" stays. Edit `SHOW` in `bin/nook-tray` to change the list. |
 | **Wallpaper** | Rendered **per screen at its real size**, so rotated or portrait monitors get a stacked layout. It has a dot grid, a faint ASCII skull (only without the desktop widgets), a **key cheat-sheet** (three columns, two when the screen is too narrow), a `whoami` card and the rainbow `NOOK` banner. The lock screen gets it too. |
-| **Login screen** | `theme/sddm/nook`, an SDDM theme in plain QtQuick: the wallpaper's dot grid, the desktop's `#` clock, a terminal-style `LOGIN // TTY` card and the rainbow banner. `user ‹ nbax ›`, `pass ▶ ••••` and `session ‹ plasma (wayland) ›` rows (Tab moves between them, ←→ change the user or session, ⏎ logs in), and `[ suspend ] [ reboot ] [ shut down ]` with the taskbar's hover bars. A failed login shakes the card; caps lock gets a warning. Other screens get just the clock and banner. Also uses the Nook cursor. Installed by `scripts/sddm.sh` (sudo) to `/usr/share/sddm/themes/nook`, picked by `/etc/sddm.conf.d/zz-nook.conf`; `scripts/sddm.sh --remove` undoes it. Preview without logging out: `sddm-greeter-qt6 --test-mode --theme theme/sddm/nook`. **Plasma Login** (Plasma 6.6+, the default on Fedora/Nobara now) has a built-in greeter that takes no themes, so `scripts/sddm.sh` gives it Nook's colours, Plasma style, font and cursor (in the `plasmalogin` user's config) and the desktop's wallpaper (in `/etc/plasmalogin.conf`) instead. System Settings → Login Screen → "Apply Plasma Settings" overwrites that; run `scripts/sddm.sh` again to restore it. |
+| **Login screen** | `theme/sddm/nook`, an SDDM theme in plain QtQuick: the wallpaper's dot grid, the desktop's `#` clock, a terminal-style `LOGIN // TTY` card and the rainbow banner. `user ‹ nbax ›`, `pass ▶ ••••` and `session ‹ plasma (wayland) ›` rows (Tab moves between them, ←→ change the user or session, ⏎ logs in), and `[ suspend ] [ reboot ] [ shut down ]` with the taskbar's hover bars. A failed login shakes the card; caps lock gets a warning. Other screens get just the clock and banner. Also uses the Nook cursor. Installed by `scripts/sddm.sh` (sudo) to `/usr/share/sddm/themes/nook`, picked by `/etc/sddm.conf.d/zz-nook.conf`; `scripts/sddm.sh --remove` undoes it. Preview without logging out: `sddm-greeter-qt6 --test-mode --theme theme/sddm/nook`. **Plasma Login** (Plasma 6.6+, the default on Fedora/Nobara now) has a built-in greeter that takes no themes, so `scripts/sddm.sh` gives it Nook's colours, Plasma style, font and cursor (in the `plasmalogin` user's config) and the desktop's wallpaper (in `/etc/plasmalogin.conf`) instead. System Settings → Login Screen → "Apply Plasma Settings" overwrites that; run `scripts/sddm.sh` again to restore it. **One look for both sessions** (Plasma and nook-tile): by default the **Ramen Sign** look (neutral greys and neons, cyan focus, the `NookRamen` colours, Nook-Pixel cursor, a black wallpaper with the glowing `NOOK` banner from `scripts/login_wallpaper.py`; the SDDM theme reads `palette=ramen` from its `theme.conf`). `scripts/sddm.sh --pastel` brings back the cocoa look. |
 | **Logout screen** | `theme/look-and-feel/org.nook.desktop`, a global theme with only a logout screen: the login screen's dot grid, `#` clock and banner around a `SESSION // POWER` card of `[ sleep ] [ restart ] [ shut down ] [ log out ] [ cancel ]` (←→ or Tab pick, ⏎ runs, Esc cancels). Shut down or restart from the menu counts down 30 s. Everything else (splash, lock screen) is Breeze. `apply.sh` sets just its name, since `plasma-apply-lookandfeel` would also reset the panel. Preview: `/usr/libexec/ksmserver-logout-greeter --windowed` (the buttons work, so press Esc). |
 | **Lock screen** | Plasma's own (since Plasma 6.6 it belongs to the desktop shell, not the global theme) in Nook colours, font and the primary screen's wallpaper. |
 | **Terminal** | **Alacritty** is the default terminal (`Meta+Return`, and Plasma's default terminal for Dolphin & co.). It runs **zsh with oh-my-zsh** and the `nook` theme: a two-line prompt (`╭─λ user@host ─ ~/path ─  branch ✓` / `╰─❯`). The right side shows the conda/venv env, how long the last command took, a failed command's exit code, and the time. Autosuggestions and syntax highlighting are in the pastels. Your own `~/.zshrc` is kept; one line is added at its top. Pastel 16-colour palette, 92% opacity with blur (`theme/alacritty/nook.toml`; apply.sh writes `~/.config/alacritty/alacritty.toml` with the font and shell). **Konsole stays as the fallback** on `Ctrl+Alt+T`, with the same look in its `Nook` profile and no toolbars (menus via Ctrl+Shift+M or right-click).
@@ -85,7 +91,7 @@ primary screen. Plug in or rotate a monitor? Run `./install.sh --no-deps` again.
 ## Layout
 
 ```
-install.sh              entry point: deps.sh, apply.sh, then sddm.sh
+install.sh              entry point: deps.sh, apply.sh, tile/install.sh, then sddm.sh
 scripts/deps.sh         packages per distro (dnf / apt / pacman / zypper) + VT323
 scripts/apply.sh        everything per-user; backs up first to ~/.local/state/nook/
 scripts/sddm.sh         the login screen (SDDM or Plasma Login) and its cursor, system-wide (sudo); --remove undoes it

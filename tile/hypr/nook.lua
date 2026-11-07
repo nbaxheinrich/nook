@@ -8,7 +8,7 @@
 
 local C = {
     bg000 = "060606", bg100 = "0d0d0d", bg200 = "141414", line = "343434",
-    cyan  = "45c8e6", orange = "ff9a3c",
+    cyan  = "45c8e6", red = "ff6458",
 }
 local function rgba(hex, a) return "rgba(" .. hex .. (a or "ff") .. ")" end
 
@@ -53,8 +53,8 @@ hl.config({
         gaps_out    = 12,                               -- space-3
         border_size = 2,
         col = {
-            -- the neon sign: cyan → orange, slowly rotating (borderangle below)
-            active_border   = { colors = { rgba(C.cyan), rgba(C.orange) }, angle = 45 },
+            -- the neon sign: cyan → red, slowly rotating (borderangle below)
+            active_border   = { colors = { rgba(C.cyan), rgba(C.red) }, angle = 45 },
             inactive_border = rgba(C.line, "cc"),
         },
         layout           = "dwindle",

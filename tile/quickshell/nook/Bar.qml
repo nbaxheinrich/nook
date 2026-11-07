@@ -79,15 +79,15 @@ Scope {
                 anchors.fill: parent
                 spacing: Theme.gap
 
-                // ── λ nook: solid orange neon, opens the hack menu ──
+                // ── λ nook: solid red neon, opens the hack menu ──
                 Pill {
                     id: startPill
-                    color: Theme.orange
-                    border.color: Ui.launcherOpen ? Theme.cyan : Theme.orange
+                    color: Theme.red
+                    border.color: Ui.launcherOpen ? Theme.cyan : Theme.red
                     border.width: Ui.launcherOpen ? 2 : 1
                     onClicked: root.openMenu()
                     layer.enabled: true
-                    layer.effect: Glow { shadowColor: Theme.orange; shadowBlur: 0.8; shadowOpacity: 0.7 }
+                    layer.effect: Glow { shadowColor: Theme.red; shadowBlur: 0.8; shadowOpacity: 0.7 }
                     Text { text: "λ"; color: Theme.onAccent; font.family: Theme.pixel; font.pixelSize: 26 }
                     Text { text: "nook"; color: Theme.onAccent; font.family: Theme.font; font.pixelSize: Theme.body; font.bold: true }
                 }
@@ -112,7 +112,7 @@ Scope {
                                 width: mark.active ? 30 : 10
                                 height: 10
                                 radius: Theme.radiusSm
-                                color: mark.urgent ? Theme.red : mark.active ? Theme.cyan
+                                color: mark.urgent ? Theme.orange : mark.active ? Theme.cyan
                                      : mark.wsObj ? Theme.muted : Theme.faint
                                 Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                                 Behavior on color { ColorAnimation { duration: 180 } }
@@ -206,27 +206,32 @@ Scope {
                     }
                 }
 
-                // ── power: opens the menu's [sys] rows; right-click locks ──
+                // ── power: solid red like λ nook; opens the menu (power buttons), right-click locks ──
                 Pill {
+                    color: Theme.red
+                    border.color: Ui.launcherOpen ? Theme.cyan : Theme.red
+                    border.width: Ui.launcherOpen ? 2 : 1
                     onClicked: m => m.button === Qt.RightButton
                         ? Quickshell.execDetached(["loginctl", "lock-session"])
                         : root.openMenu()
-                    Text { text: "⏻"; color: Theme.cream; font.pixelSize: 15 }
+                    layer.enabled: true
+                    layer.effect: Glow { shadowColor: Theme.red; shadowBlur: 0.8; shadowOpacity: 0.7 }
+                    Text { text: "⏻"; color: Theme.onAccent; font.pixelSize: 17; font.bold: true }
                 }
             }
 
-            // ── clock: VT323 orange, centred on the screen (not between the modules) ──
+            // ── clock: VT323 red, centred on the screen (not between the modules) ──
             Pill {
                 id: clockPill
                 anchors.centerIn: parent
                 Text {
                     id: hhmm
                     text: Qt.formatDateTime(clock.date, "HH:mm")
-                    color: Theme.orange
+                    color: Theme.red
                     font.family: Theme.pixel
                     font.pixelSize: 28
                     layer.enabled: true
-                    layer.effect: Glow { shadowColor: Theme.orange }
+                    layer.effect: Glow { shadowColor: Theme.red }
                 }
                 Rectangle { implicitWidth: 1; implicitHeight: 18; color: Theme.line }
                 Label {

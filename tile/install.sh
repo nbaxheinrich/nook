@@ -42,6 +42,8 @@ deps_fedora() {
     quickshell kitty mako qt6ct \
     fzf figlet lolcat fastfetch btop playerctl python3 curl \
     grim slurp wl-clipboard jetbrains-mono-fonts-all
+  # the prompt; optional (Nobara/Terra have it): without it zsh keeps the recoloured nook prompt
+  sudo dnf install -y starship 2>/dev/null || warn "no starship package: the terminal keeps the oh-my-zsh prompt"
 }
 
 deps_ubuntu() {
@@ -63,6 +65,7 @@ deps_ubuntu() {
     qml6-module-qtquick qml6-module-qtqml qml6-module-qtqml-models qml6-module-qtqml-workerscript \
     qml6-module-qtquick-effects qml6-module-qtquick-layouts qml6-module-qtquick-window \
     qml6-module-qtquick-templates qml6-module-qtquick-controls libqt6svg6 qt6-wayland
+  sudo apt-get install -y starship || warn "no starship package: the terminal keeps the oh-my-zsh prompt"
   if apt-cache policy quickshell 2>/dev/null | grep -q 'Candidate: [0-9]'; then
     sudo apt-get install -y quickshell                  # in the archive from Ubuntu 26.10 on
   elif ! command -v qs >/dev/null; then
@@ -205,6 +208,7 @@ if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; the
   printf 'shell %s\n' "$zsh_bin" >> "$CFG/kitty/kitty.conf"
 fi
 link "$TILE/mako/config"            "$CFG/mako/config"
+link "$TILE/starship/ramen.toml"    "$CFG/starship/ramen.toml"
 link "$TILE/fastfetch/ramen.jsonc"   "$CFG/fastfetch/ramen.jsonc"
 link "$TILE/fastfetch/ramen-logo.txt" "$CFG/fastfetch/ramen-logo.txt"
 # the nook zshrc (the KDE install hooks it into ~/.zshrc) plus the Ramen palette it loads in kitty

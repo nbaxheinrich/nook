@@ -27,7 +27,7 @@ Scope {
                 rows[r] += root.glyphs[ch][r].replace(/1/g, "██").replace(/0/g, "  ") + " ";
         return rows;
     }
-    readonly property var clockHues: [Theme.rose, Theme.orange, Theme.gold, Theme.aqua, Theme.cyan]
+    readonly property var clockHues: [Theme.rose, Theme.red, Theme.gold, Theme.aqua, Theme.cyan]
 
     readonly property var player: Mpris.players.values.find(p => p.isPlaying) ?? Mpris.players.values[0] ?? null
 
@@ -97,7 +97,7 @@ Scope {
                 Panel {
                     title: "TIME // LOCAL"
                     status: "wk" + Qt.formatDateTime(clock.date, "ww")
-                    statusHue: Theme.orange
+                    statusHue: Theme.red
                     Column {
                         Layout.alignment: Qt.AlignHCenter
                         Repeater {
@@ -114,7 +114,7 @@ Scope {
                         }
                         layer.enabled: true
                         layer.effect: MultiEffect {
-                            shadowEnabled: true; shadowColor: Theme.orange
+                            shadowEnabled: true; shadowColor: Theme.red
                             shadowBlur: 0.8; shadowOpacity: 0.45
                             shadowHorizontalOffset: 0; shadowVerticalOffset: 0
                         }
@@ -128,7 +128,7 @@ Scope {
                 Panel {
                     title: "SYS // LIVE"
                     status: Stats.temp > 0 ? Stats.temp + "°c" : ""
-                    statusHue: Stats.temp >= 80 ? Theme.red : Theme.amber
+                    statusHue: Stats.temp >= 80 ? Theme.orange : Theme.amber
                     BarRow { name: "cpu"; pct: Stats.cpu; hue: Theme.amber }
                     BarRow { name: "ram"; pct: Stats.ram; hue: Theme.aqua }
                     BarRow { name: "disk"; pct: Stats.disk; hue: Theme.gold; extra: "/" }

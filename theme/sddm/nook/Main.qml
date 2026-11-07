@@ -10,18 +10,24 @@ Rectangle {
     height: 1080
     color: bg000
 
-    readonly property color bg000: "#1a1614"
-    readonly property color bg100: "#221d1a"
-    readonly property color bg300: "#372f2a"
-    readonly property color line: "#4a3f38"
-    readonly property color ink: "#f6ece4"
-    readonly property color muted: "#bfae9f"
-    readonly property color faint: "#7d6d62"
-    readonly property var hues: ["#f5a8c9", "#f7a59a", "#f9c49a", "#f2e29b", "#a6e6bf", "#94dcd6", "#a3cdf5", "#c4b2f5", "#e2b5f0"]
+    // palette from theme.conf: "ramen" (Ramen Sign: neutral greys + neons, cyan focus; the default)
+    // or "pastel" (the cocoa Plasma rice). Role names stay the pastel ones; in Ramen they map to
+    // coral → red, butter → gold, mint → aqua, lavender → cyan (focus), lilac → cream (session).
+    readonly property bool ramen: (config.palette || "ramen") !== "pastel"
+    readonly property color bg000: ramen ? "#060606" : "#1a1614"
+    readonly property color bg100: ramen ? "#0d0d0d" : "#221d1a"
+    readonly property color bg300: ramen ? "#202020" : "#372f2a"
+    readonly property color line: ramen ? "#343434" : "#4a3f38"
+    readonly property color ink: ramen ? "#f2f2f2" : "#f6ece4"
+    readonly property color muted: ramen ? "#a8a8a8" : "#bfae9f"
+    readonly property color faint: ramen ? "#626262" : "#7d6d62"
+    readonly property var hues: ramen
+        ? ["#ff7a5c", "#ff6458", "#ff9a3c", "#ffc247", "#4fd8cf", "#45c8e6", "#62a5ff", "#ffb14a", "#ffd98f"]
+        : ["#f5a8c9", "#f7a59a", "#f9c49a", "#f2e29b", "#a6e6bf", "#94dcd6", "#a3cdf5", "#c4b2f5", "#e2b5f0"]
     readonly property color coral: hues[1]
     readonly property color butter: hues[3]
     readonly property color mint: hues[4]
-    readonly property color lavender: hues[7]
+    readonly property color lavender: ramen ? hues[5] : hues[7]
     readonly property color lilac: hues[8]
 
     readonly property string mono: config.font || "JetBrains Mono"

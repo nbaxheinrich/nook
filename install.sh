@@ -49,7 +49,7 @@ fi
 # ── 2. nook-tile: its own distro checks (Fedora/Nobara 44+, Ubuntu 26.04+); a failure here
 #      doesn't undo the Plasma part, it's reported at the end ──
 if [ "$tile" = 1 ]; then
-  tile_args=()
+  tile_args=(--no-login)                      # the login screen comes last, below
   [ "$deps" = 0 ] && tile_args+=(--no-deps)
   "$here/tile/install.sh" "${tile_args[@]}" || failed+=("nook-tile (tile/install.sh)")
 fi

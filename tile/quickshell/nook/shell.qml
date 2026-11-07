@@ -9,4 +9,5 @@ ShellRoot {
     CheatSheet {}
     Bar {}
     Launcher {}
+    ControlCenter {}
 }

@@ -7,6 +7,8 @@ import Quickshell.Widgets
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import Quickshell.Services.SystemTray
+import Quickshell.Bluetooth
+import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
@@ -160,13 +162,38 @@ Scope {
                     Label { text: Stats.ram + "%"; color: Theme.aqua }
                 }
 
-                // ── volume (scroll = ±5%, click = mute) + battery ──
+                // ── net · bt: wifi signal and bluetooth; click → control center ──
+                Pill {
+                    id: netbt
+                    readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
+                    readonly property var wnet: wifi?.networks?.values.find(n => n.connected) ?? null
+                    readonly property var bta: Bluetooth.defaultAdapter
+                    readonly property int btOn: (bta?.devices?.values ?? []).filter(d => d.connected).length
+                    hot: Ui.controlOpen && (Ui.controlTab === "net" || Ui.controlTab === "bt")
+                    onClicked: m => Ui.openControl(m.button === Qt.RightButton ? "bt" : "net")
+                    Label { text: "net" }
+                    Label {
+                        text: netbt.wnet ? "▂▄▆█".slice(0, Math.max(1, Math.round(netbt.wnet.signalStrength * 4))).padEnd(4, "▁") : (netbt.wifi && Networking.wifiEnabled ? "····" : "wire")
+                        color: Theme.blue
+                    }
+                    Label { text: "bt"; Layout.leftMargin: 2 }
+                    Label {
+                        text: !netbt.bta || !netbt.bta.enabled ? "off" : netbt.btOn > 0 ? "●" + netbt.btOn : "○"
+                        color: netbt.bta?.enabled ? Theme.cyan : Theme.faint
+                    }
+                }
+
+                // ── volume: click → audio in the control center, right-click = mute, scroll = ±5% ──
                 Pill {
                     id: vol
                     readonly property var sink: Pipewire.defaultAudioSink
                     readonly property real v: sink?.audio?.volume ?? 0
                     readonly property bool muted: sink?.audio?.muted ?? false
-                    onClicked: if (sink?.audio) sink.audio.muted = !sink.audio.muted
+                    hot: Ui.controlOpen && Ui.controlTab === "audio"
+                    onClicked: m => {
+                        if (m.button === Qt.RightButton) { if (sink?.audio) sink.audio.muted = !sink.audio.muted }
+                        else Ui.openControl("audio")
+                    }
                     onScrolled: w => { if (sink?.audio) sink.audio.volume = Math.max(0, Math.min(1, v + (w.angleDelta.y > 0 ? 0.05 : -0.05))) }
                     Label { text: "vol" }
                     Label {
@@ -182,9 +209,12 @@ Scope {
                     }
                 }
 
-                // ── tray: left = activate, right = menu ──
+                // ── background apps: count + icons; the pill opens the list, an icon its app ──
                 Pill {
                     visible: SystemTray.items.values.length > 0
+                    hot: Ui.controlOpen && Ui.controlTab === "apps"
+                    onClicked: Ui.openControl("apps")
+                    Label { text: "bg " + SystemTray.items.values.length; color: Theme.amber }
                     Repeater {
                         model: SystemTray.items
                         IconImage {

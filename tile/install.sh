@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # nook-tile: Hyprland + Quickshell in the Ramen Sign design, next to (not instead of) Plasma.
-# usage: tile/install.sh [--no-deps]
-#   --no-deps  skip the packages (sudo); only link the configs
+# usage: tile/install.sh [--no-deps] [--no-login]
+#   --no-deps   skip everything that needs sudo (packages, login screen); only link the configs
+#   --no-login  leave the login screen alone (by default it gets the Ramen Sign look too,
+#               via scripts/sddm.sh; ./install.sh in the repo root passes this and does it itself)
 #
 # Configs are SYMLINKS into this repo, so editing a file here changes the live desktop:
 # Hyprland reloads nook.lua on save, Quickshell reloads its folder on save.
@@ -12,10 +14,11 @@ TILE="$REPO/tile"
 CFG="$XDG_CONFIG_HOME"
 BACKUP_DIR="$NOOK_STATE/tile-backup-$(date +%Y%m%d-%H%M%S)"
 
-deps=1
+deps=1 login=1
 for a in "$@"; do
   case "$a" in
     --no-deps) deps=0 ;;
+    --no-login|--no-sddm) login=0 ;;
     -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
     *) die "unknown option $a" ;;
   esac
@@ -221,5 +224,10 @@ systemctl --user daemon-reload 2>/dev/null || true
 ok "kitty (Ramen palette), mako, fastfetch, zsh palette, hyprland-session.target"
 
 [ -d "${BACKUP_DIR}" ] && ok "replaced files backed up to ${BACKUP_DIR/#$HOME/~}"
+
+# ── login screen in Ramen Sign (SDDM or Plasma Login; sudo) ──
+if [ "$deps" = 1 ] && [ "$login" = 1 ]; then
+  "$REPO/scripts/sddm.sh" || warn "login screen not changed; run scripts/sddm.sh alone to see why"
+fi
 printf '\n%sλ%s done. Log out and pick %sHyprland%s on the login screen.\n' "$c_mint" "$c_off" "$c_lav" "$c_off"
 printf '  SUPER ⏎ terminal · SUPER SPACE hack menu · SUPER / keybinds · SUPER ⇧ E back out\n'

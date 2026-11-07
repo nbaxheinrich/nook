@@ -108,7 +108,7 @@ hl.animation({ leaf = "borderangle", enabled = true, speed = 80, bezier = "defau
 -------------------------------------------------------------------------------
 -- layer surfaces (Quickshell) and window rules
 -------------------------------------------------------------------------------
-for _, ns in ipairs({ "nook-bar", "nook-cheatsheet", "nook-widgets", "nook-launcher" }) do
+for _, ns in ipairs({ "nook-bar", "nook-cheatsheet", "nook-widgets", "nook-launcher", "nook-control" }) do
     hl.layer_rule({ match = { namespace = "^" .. ns .. "$" }, blur = true, ignore_alpha = 0.05 })
 end
 
@@ -131,6 +131,7 @@ local function MS(k) return mod .. " + SHIFT + " .. k end
 -- apps
 bind(M("RETURN"),  hl.dsp.exec_cmd(term),              "apps: terminal")
 bind(M("SPACE"),   hl.dsp.exec_cmd(menu),              "apps: hack menu")
+bind(M("A"),       hl.dsp.exec_cmd("qs -c nook ipc call control toggle audio"), "apps: control center (sound, net, bt, background apps)")
 bind(M("E"),       hl.dsp.exec_cmd(files),             "apps: files")
 bind(M("B"),       hl.dsp.exec_cmd(browser),           "apps: browser")
 bind(MS("RETURN"), hl.dsp.exec_cmd(term .. " -e btop"), "apps: btop")

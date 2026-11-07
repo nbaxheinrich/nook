@@ -60,6 +60,11 @@ and Quickshell reloads its folder when you save it, so editing here changes the 
   - `SYS // LIVE` (cpu, ram, gpu, temp, net, workspaces), a hexdump of what you type, and the cat.
   - `[lock] [sleep] [reboot] [shutdown]`. Reboot and shutdown ask with a second click.
   - Keys: `↑↓`/Tab to move, `⏎` to run, `Alt 1‥9` for direct launch, `Esc` or a click outside to close.
+- **Control center** (`ControlCenter.qml`, `SUPER A`, or click `vol` / `net · bt` / `bg N` in the bar), four tabs in the launcher's look:
+  - `audio`: output and input device to pick, volume and mic bars (click, drag or scroll), mute, and a mixer per app.
+  - `net`: wifi on/off and networks by signal. Click to connect or disconnect. New secured networks ask for the password in `nmtui`. Wired links are read from `nmcli`.
+  - `bt`: bluetooth on/off, scan, devices with connect/disconnect/pair and battery.
+  - `apps`: the background apps (the tray) as a list. Click opens, right-click opens their menu. Also what's playing.
 - **Cheatsheet** (`CheatSheet.qml`) sits on the wallpaper, under every window. `SUPER /` toggles it.
   - It reads the binds from `hyprctl binds -j`. Every bind in `nook.lua` with a description
     `"group: label"` shows up there, so `nook.lua` is the only list of keys.

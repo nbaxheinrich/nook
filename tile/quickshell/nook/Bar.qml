@@ -1,6 +1,7 @@
 // The bar: separate floating modules along the bottom, 10px above the edge, 12px from the sides.
 //   λ nook · workspaces · window title ······ clock ······ cpu/ram · vol · tray · power
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Widgets
@@ -17,6 +18,42 @@ Scope {
     id: root
 
     SystemClock { id: clock; precision: SystemClock.Minutes }
+
+    // ── keyboard layout (eu / de). Hyprland 0.57 sends no event for switchxkblayout, so the
+    //    switch (pill click or SUPER K) asks for a re-read over IPC; a slow poll catches the rest ──
+    property string kb: ""
+    function kbShort(name) {
+        if (/eurkey/i.test(name)) return "eu";
+        if (/german|deutsch/i.test(name)) return "de";
+        return name.slice(0, 2).toLowerCase();
+    }
+    function switchKb() { Quickshell.execDetached(["sh", "-c", "hyprctl switchxkblayout all next >/dev/null && qs -c nook ipc call kb refresh"]) }
+    IpcHandler {
+        target: "kb"
+        function refresh(): void { kbRead.running = true }
+    }
+    Timer { interval: 10000; running: true; repeat: true; onTriggered: kbRead.running = true }
+    Process {
+        id: kbRead
+        running: true
+        command: ["hyprctl", "devices", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const k = JSON.parse(this.text).keyboards;
+                    const main = k.find(x => x.main) ?? k[0];
+                    if (main) root.kb = root.kbShort(main.active_keymap);
+                } catch (e) {}
+            }
+        }
+    }
+    Connections {
+        target: Hyprland
+        // data: "<keyboard>,<layout name>"
+        function onRawEvent(event) {
+            if (event.name === "activelayout") root.kb = root.kbShort(event.data.split(",").slice(1).join(","));
+        }
+    }
     PwObjectTracker { objects: [Pipewire.defaultAudioSink] }
 
     // Hyprland 0.57 takes Lua dispatchers over IPC
@@ -87,7 +124,7 @@ Scope {
             readonly property real titleRoom: Math.min(320, tagRoom - tagFixed)
             readonly property real bgIconsW: SystemTray.items.values.length * (16 + 10)
             readonly property real bgFullW: bgPill.visible ? 28 + bgLbl.implicitWidth + bgIconsW + Theme.gap : 0
-            readonly property real rightCore: netbt.implicitWidth + vol.implicitWidth + powerPill.implicitWidth + 2 * Theme.gap
+            readonly property real rightCore: kbPill.implicitWidth + netbt.implicitWidth + vol.implicitWidth + powerPill.implicitWidth + 3 * Theme.gap
             readonly property bool showCpu: rightCore + bgFullW + cpuPill.implicitWidth + Theme.gap <= half
             readonly property bool showBgIcons: rightCore + bgFullW <= half
 
@@ -179,6 +216,16 @@ Scope {
                     Label { text: Stats.cpu + "%"; color: Theme.amber }
                     Label { text: "ram"; Layout.leftMargin: 4 }
                     Label { text: Stats.ram + "%"; color: Theme.aqua }
+                }
+
+                // ── keyboard layout: click (or SUPER K) switches eu ⇄ de ──
+                Pill {
+                    id: kbPill
+                    visible: root.kb !== ""
+                    onClicked: root.switchKb()
+                    onScrolled: root.switchKb()
+                    Label { text: "kb" }
+                    Label { text: root.kb; color: root.kb === "de" ? Theme.gold : Theme.aqua; font.bold: true }
                 }
 
                 // ── net · bt: wifi signal and bluetooth; click → control center ──

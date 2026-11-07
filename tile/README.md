@@ -60,6 +60,7 @@ and Quickshell reloads its folder when you save it, so editing here changes the 
   - `SYS // LIVE` (cpu, ram, gpu, temp, net, workspaces), a hexdump of what you type, and the cat.
   - `[lock] [sleep] [reboot] [shutdown]`. Reboot and shutdown ask with a second click.
   - Keys: `↑↓`/Tab to move, `⏎` to run, `Alt 1‥9` for direct launch, `Esc` or a click outside to close.
+- **Keyboard pill** `kb eu` / `kb de` in the bar: shows the active layout (EurKEY / German, `kb_layout = "eu,de"` in `machine.lua`). Click it or press `SUPER K` to switch.
 - **Control center** (`ControlCenter.qml`, `SUPER A`, or click `vol` / `net · bt` / `bg N` in the bar), four tabs in the launcher's look:
   - `audio`: output and input device to pick, volume and mic bars (click, drag or scroll), mute, and a mixer per app.
   - `net`: wifi on/off and networks by signal. Click to connect or disconnect. New secured networks ask for the password in `nmtui`. Wired links are read from `nmcli`.
@@ -83,7 +84,7 @@ and Quickshell reloads its folder when you save it, so editing here changes the 
 | apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
 | workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send · `SUPER S` scratchpad · `SUPER` + scroll |
-| system | `SUPER L` lock · `PRINT` area → clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
+| system | `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `PRINT` area → clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 
 ## Known gaps
 

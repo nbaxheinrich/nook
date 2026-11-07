@@ -162,6 +162,7 @@ bind(M("mouse_up"),   hl.dsp.focus({ workspace = "e-1" }),                "works
 
 -- system
 bind(M("L"),     hl.dsp.exec_cmd("loginctl lock-session"),                         "system: lock")
+bind(M("K"),     hl.dsp.exec_cmd("hyprctl switchxkblayout all next && qs -c nook ipc call kb refresh"),              "system: keyboard eu ⇄ de")
 bind("PRINT",    hl.dsp.exec_cmd('grim -g "$(slurp)" - | wl-copy'),               "system: screenshot area")
 bind(MS("PRINT"), hl.dsp.exec_cmd("grim - | wl-copy"),                            "system: screenshot")
 bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet toggle"),         "system: this cheatsheet")

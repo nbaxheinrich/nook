@@ -77,6 +77,19 @@ and Quickshell reloads its folder when you save it, so editing here changes the 
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.
 - `Theme.qml` holds the tokens and `Stats.qml` the shared `/proc` numbers.
 
+## Gaming
+
+- **Global:** tearing allowed, VRR for fullscreen windows (`misc.vrr = 2`), direct scanout for fullscreen games.
+- **Games** (`steam_app_<id>`, `gamescope`, `*.exe`) get a rule:
+  - tearing (`immediate`) for the lowest latency
+  - no idle lock while fullscreen
+  - `content = "game"`
+  - no blur or dimming
+  - they keep rendering when the other screen has focus
+- **NVIDIA:** `LIBVA_DRIVER_NAME`, `__GLX_VENDOR_LIBRARY_NAME` and `NVD_BACKEND` are set when the proprietary driver is loaded.
+- **`SUPER G` game mode** (`bin/nook-gamemode`) turns animations, blur, shadows, dimming and gaps off. Press it again to reload the normal look.
+- **Steam launch options** worth using: `gamemoderun %command%` (CPU governor and priority), `mangohud %command%` (FPS overlay), or `gamescope -f -W 2560 -H 1440 -r 144 -- %command%` for games that misbehave with XWayland.
+
 ## Keys
 
 | | |
@@ -84,7 +97,7 @@ and Quickshell reloads its folder when you save it, so editing here changes the 
 | apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
 | workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send · `SUPER S` scratchpad · `SUPER` + scroll |
-| system | `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `PRINT` area → clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
+| system | `SUPER G` game mode · `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `PRINT` area → clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 
 ## Known gaps
 

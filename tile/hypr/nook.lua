@@ -44,6 +44,16 @@ hl.env("HYPRCURSOR_SIZE", "16")
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
 
+-- NVIDIA (proprietary driver): VA-API, GLX vendor and Electron on Wayland
+local nv = io.open("/proc/driver/nvidia/version", "r")
+if nv then
+    nv:close()
+    hl.env("LIBVA_DRIVER_NAME", "nvidia")
+    hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+    hl.env("NVD_BACKEND", "direct")
+end
+hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+
 -------------------------------------------------------------------------------
 -- look
 -------------------------------------------------------------------------------
@@ -118,6 +128,28 @@ hl.window_rule({ match = { title = "^(Open File|Save File|Open Folder|Choose Fil
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })
 
 -------------------------------------------------------------------------------
+-- gaming: tearing for games, VRR in fullscreen, direct scanout, no lock mid-game
+-------------------------------------------------------------------------------
+hl.config({
+    general = { allow_tearing = true },   -- only windows with `immediate` tear
+    misc    = { vrr = 2 },                -- variable refresh rate for fullscreen windows
+    render  = { direct_scanout = 2 },     -- skip compositing for fullscreen games
+})
+-- Steam/Proton games (steam_app_<id>), gamescope, Wine/Lutris .exe windows
+hl.window_rule({
+    name             = "games",
+    match            = { class = "^(steam_app_[0-9]+|gamescope|.*\\.exe)$" },
+    immediate        = true,          -- tearing: lowest latency (needs allow_tearing)
+    idle_inhibit     = "fullscreen",  -- hypridle doesn't lock while you play fullscreen
+    content          = "game",        -- tells direct scanout / VRR it's a game
+    no_blur          = true,
+    no_dim           = true,
+    render_unfocused = true,          -- keeps rendering on the other screen
+})
+-- Steam's own small windows float
+hl.window_rule({ match = { class = "^steam$", title = "^(Friends List|Steam Settings|Properties.*|.* - Chat|Screenshot Manager)$" }, float = true })
+
+-------------------------------------------------------------------------------
 -- keybinds  (description = "group: label" → cheatsheet)
 -------------------------------------------------------------------------------
 local function bind(keys, dsp, desc, opts)
@@ -168,6 +200,7 @@ bind(MS("PRINT"), hl.dsp.exec_cmd("grim - | wl-copy"),                          
 bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet toggle"),         "system: this cheatsheet")
 bind(MS("R"),    hl.dsp.exec_cmd("pkill -x qs; qs -c nook"),                       "system: reload shell")
 bind(MS("E"),    hl.dsp.exit(),                                                    "system: exit hyprland")
+bind(M("G"),     hl.dsp.exec_cmd("nook-gamemode"),                                 "system: game mode on / off")
 
 -- media keys (no description: not on the cheatsheet)
 local L = { locked = true, repeating = true }

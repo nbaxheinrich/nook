@@ -210,6 +210,7 @@ grep -q '^include nook.conf' "$CFG/kitty/kitty.conf" || printf '\ninclude nook.c
 if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; then
   printf 'shell %s\n' "$zsh_bin" >> "$CFG/kitty/kitty.conf"
 fi
+link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
 link "$TILE/mako/config"            "$CFG/mako/config"
 link "$TILE/starship/ramen.toml"    "$CFG/starship/ramen.toml"
 link "$TILE/fastfetch/ramen.jsonc"   "$CFG/fastfetch/ramen.jsonc"

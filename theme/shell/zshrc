@@ -38,6 +38,9 @@ ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#bfae9f'
 ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#bfae9f'
 ZSH_HIGHLIGHT_STYLES[comment]='fg=#7d6d62'
 
+# nook-tile: kitty sets NOOK_THEME=ramen for the Ramen Sign neons
+[[ ${NOOK_THEME:-} == ramen && -f "$HOME/.local/share/nook/ramen.zsh" ]] && . "$HOME/.local/share/nook/ramen.zsh"
+
 alias keys='nook-keys'
 # zoxide, eza, bat, fd, fzf colours
 [ -f "$HOME/.local/share/nook/tools.sh" ] && . "$HOME/.local/share/nook/tools.sh"
@@ -46,5 +49,5 @@ alias keys='nook-keys'
 # fastfetch once per Nook terminal
 if [[ -o interactive && -n ${NOOK:-} && -z ${NOOK_FETCHED:-} ]] && command -v fastfetch >/dev/null; then
   export NOOK_FETCHED=1
-  fastfetch
+  if [[ -n ${NOOK_FASTFETCH:-} && -f $NOOK_FASTFETCH ]]; then fastfetch -c "$NOOK_FASTFETCH"; else fastfetch; fi
 fi

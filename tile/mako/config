@@ -1,0 +1,26 @@
+# nook-tile · mako notifications, top-right. Ramen Sign.
+font=JetBrains Mono 10
+background-color=#0d0d0dee
+text-color=#f2f2f2
+border-color=#45c8e6
+border-size=1
+border-radius=4
+padding=12
+margin=12
+outer-margin=12
+width=320
+icon-path=/usr/share/icons/Nook
+max-icon-size=32
+default-timeout=5000
+anchor=top-right
+layer=overlay
+format=<b>[i] %s</b>\n<span foreground="#a8a8a8">%b</span>
+
+[urgency=low]
+border-color=#343434
+format=<b>[~] %s</b>\n<span foreground="#a8a8a8">%b</span>
+
+[urgency=critical]
+border-color=#ff6458
+default-timeout=0
+format=<b><span foreground="#ff6458">[!!]</span> %s</b>\n<span foreground="#a8a8a8">%b</span>

@@ -1,0 +1,13 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [{ "Name": "Nook" }],
+        "Category": "Global Themes (Plasma 6)",
+        "Description": "Nook: cocoa and pastels, a terminal-style logout screen",
+        "Id": "org.nook.desktop",
+        "License": "GPL-2.0+",
+        "Name": "Nook",
+        "Version": "1"
+    },
+    "X-Plasma-APIVersion": "2"
+}

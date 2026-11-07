@@ -1,0 +1,16 @@
+# What Plasma falls back to when a setting isn't set. Everything this package leaves out
+# (splash, lock screen, window switcher) comes from Breeze.
+[kdeglobals][General]
+ColorScheme=Nook
+
+[kdeglobals][Icons]
+Theme=Nook
+
+[kdeglobals][KDE]
+widgetStyle=Breeze
+
+[kcminputrc][Mouse]
+cursorTheme=Nook-Cursors
+
+[plasmarc][Theme]
+name=nook

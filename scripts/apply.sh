@@ -46,6 +46,7 @@ backup "$CFG/kdeglobals" "$CFG/kwinrc" "$CFG/kwinrulesrc" "$CFG/plasmarc" \
   printf 'desktoptheme=%q\n' "$(kread --file plasmarc --group Theme --key name)"
   printf 'cursor=%q\n' "$(kread --file kcminputrc --group Mouse --key cursorTheme)"
   printf 'cursorsize=%q\n' "$(kread --file kcminputrc --group Mouse --key cursorSize)"
+  printf 'lookandfeel=%q\n' "$(kread --file kdeglobals --group KDE --key LookAndFeelPackage)"
 } > "$BACKUP_DIR/previous.env"
 ok "backup done"
 
@@ -233,6 +234,15 @@ rm -f "${XDG_CACHE_HOME:-$HOME/.cache}"/plasma-svgelements* "${XDG_CACHE_HOME:-$
 plasma-apply-desktoptheme nook >/dev/null 2>&1 || plasma-apply-desktoptheme nook
 ok "Nook colours + Plasma style (cocoa panel, lavender focus bars, rounded popups)"
 
+# The global theme holds the logout / restart / shut-down screen; what it leaves out (splash,
+# lock screen) comes from Breeze. Only its name is set: plasma-apply-lookandfeel would also
+# reset the panel layout.
+lnf="$XDG_DATA_HOME/plasma/look-and-feel/org.nook.desktop"
+rm -rf "$lnf"; mkdir -p "$(dirname "$lnf")"
+cp -r "$REPO/theme/look-and-feel/org.nook.desktop" "$lnf"
+kwrite --file kdeglobals --group KDE --key LookAndFeelPackage org.nook.desktop
+ok "global theme Nook (logout screen; preview: /usr/libexec/ksmserver-logout-greeter --windowed)"
+
 if [ "$DO_ICONS" = 1 ]; then
   step "icons: BeautyLine + Breeze symbolic, one pastel per category"
   # BeautyLine (GPL-3) is fetched at a fixed commit and repainted locally; it is not vendored here.
@@ -349,6 +359,27 @@ script_dir="$XDG_DATA_HOME/kwin/scripts/nook-tiling"
 rm -rf "$script_dir"; mkdir -p "$(dirname "$script_dir")"
 cp -r "$REPO/theme/kwin/nook-tiling" "$script_dir"
 kwrite --file kwinrc --group Plugins --key nook-tilingEnabled true
+# Some apps' windows name another app id than their .desktop file (the Discord flatpak says
+# "discord"), so the taskbar can't match them to their pin and starts a second copy on click.
+# One rule per pinned app gives its windows the right .desktop file; other rules are kept.
+rules=$(kread --file kwinrulesrc --group General --key rules | tr ',' '\n' | { grep -v '^nook-app-' || true; })
+if [ -f "$CFG/kwinrulesrc" ]; then
+  awk '/^\[/ { skip = /^\[nook-app-/ } !skip' "$CFG/kwinrulesrc" > "$CFG/kwinrulesrc.tmp"
+  mv "$CFG/kwinrulesrc.tmp" "$CFG/kwinrulesrc"
+fi
+while IFS=$'\t' read -r wmclass id; do
+  [ -n "$id" ] || continue
+  g="nook-app-$id"
+  kwrite --file kwinrulesrc --group "$g" --key Description "Nook: $wmclass windows belong to $id"
+  kwrite --file kwinrulesrc --group "$g" --key wmclass "$wmclass"
+  kwrite --file kwinrulesrc --group "$g" --key wmclassmatch 1
+  kwrite --file kwinrulesrc --group "$g" --key desktopfile "$id"
+  kwrite --file kwinrulesrc --group "$g" --key desktopfilerule 2
+  rules+=$'\n'"$g"
+done < <(python3 "$REPO/scripts/apps.py" "$REPO/config/apps.conf" wmclass 2>/dev/null)
+rules=$(grep . <<<"$rules" | paste -sd, - || true)
+kwrite --file kwinrulesrc --group General --key rules "$rules"
+kwrite --file kwinrulesrc --group General --key count "$(awk -F, '{print NF}' <<<"$rules")"
 qdbus org.kde.KWin /KWin reconfigure >/dev/null 2>&1 \
   || gdbus call --session --dest org.kde.KWin --object-path /KWin --method org.kde.KWin.reconfigure >/dev/null
 ok "Nook decoration: lavender focus ring, [_] [□] [x], Krohnkite tiling"

@@ -36,7 +36,10 @@ and Quickshell reloads its folder when you save it, so editing here changes the 
 | `systemd/hyprland-session.target` | `~/.config/systemd/user/` (link) | Starts `graphical-session.target` so xdg-desktop-portal runs (screen sharing, file dialogs). |
 | `fastfetch/ramen.*` | `~/.config/fastfetch/` (links) | Candy logo, fire to ice. |
 | `qt/NookRamen.colors` | `~/.local/share/color-schemes/` (link) + `~/.config/qt6ct/qt6ct.conf` | Qt/KDE apps in Ramen Sign: Breeze style, cyan selection and focus, your Plasma fonts and icons. Only the Hyprland session uses it (`QT_QPA_PLATFORMTHEME=qt6ct`). |
+| `starship/ramen.toml` | `~/.config/starship/` (link) | The terminal prompt (starship): `╭─[λ user@host]─[~/path]─[git:branch ●2]` / `╰─▶`, with duration, exit code and time on the right. Red is the accent, cyan the host, blue the path, gold the git state. Without starship, the nook oh-my-zsh prompt is recoloured instead. |
 | `../theme/shell/ramen.zsh` | `~/.local/share/nook/` | Same nook prompt in the neons, loaded when `NOOK_THEME=ramen`. |
+
+**Red is the accent** (start button, clock, the cyan → red window border, glows, hover in Qt apps). Orange takes over danger: urgent workspaces, errors, critical notifications, the lock button. The login screen (`scripts/sddm.sh`) uses the same Ramen Sign look, for SDDM and Plasma Login.
 
 ## The shell (Quickshell)
 

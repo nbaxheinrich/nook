@@ -21,6 +21,6 @@ border-color=#343434
 format=<b>[~] %s</b>\n<span foreground="#a8a8a8">%b</span>
 
 [urgency=critical]
-border-color=#ff6458
+border-color=#ff9a3c
 default-timeout=0
-format=<b><span foreground="#ff6458">[!!]</span> %s</b>\n<span foreground="#a8a8a8">%b</span>
+format=<b><span foreground="#ff9a3c">[!!]</span> %s</b>\n<span foreground="#a8a8a8">%b</span>

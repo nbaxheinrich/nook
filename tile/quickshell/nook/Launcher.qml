@@ -50,7 +50,7 @@ Scope {
     }
 
     // ── categories → hue + icon (one hue per category, everywhere) ──
-    readonly property var pastelToNeon: ({ pink: "rose", coral: "red", peach: "orange", butter: "gold",
+    readonly property var pastelToNeon: ({ pink: "rose", coral: "orange", peach: "red", butter: "gold",
                                            mint: "aqua", teal: "cyan", sky: "blue", lavender: "amber", lilac: "cream" })
     function hueOf(entry) {
         const c = (entry?.categories ?? []).join(";");
@@ -59,8 +59,8 @@ Scope {
         if (/WebBrowser|Network|FileTransfer|RemoteAccess/.test(c) && !/Chat|InstantMessaging|Email/.test(c)) return "blue";
         if (/Chat|InstantMessaging|Email|IRCClient|Telephony/.test(c)) return "cyan";
         if (/Audio|Video|AudioVideo|Player|Music|Graphics|Photography|Game/.test(c)) return "rose";
-        if (/Security|Encryption/.test(c)) return "red";
-        if (/Clock|Calendar|Scheduling|Archiving|Compression/.test(c)) return "orange";
+        if (/Security|Encryption/.test(c)) return "orange";
+        if (/Clock|Calendar|Scheduling|Archiving|Compression/.test(c)) return "red";
         if (/FileManager|FileTools|Office|Viewer|Documentation|WordProcessor|Spreadsheet/.test(c)) return "gold";
         return "amber";
     }
@@ -70,7 +70,7 @@ Scope {
         if (/Game/.test(c)) return "game";
         if (/Clock|Calendar/.test(c)) return "clock";
         return ({ amber: "settings", aqua: "code", blue: "globe", cyan: "chat", rose: "music",
-                  red: "shield", orange: "clock", gold: "folder", cream: "user" })[hue] ?? "app";
+                  orange: "shield", red: "clock", gold: "folder", cream: "user" })[hue] ?? "app";
     }
     function binOf(entry) {
         const cmd = (entry?.command ?? []).filter(a => !a.startsWith("%") && !a.startsWith("-") && a !== "env" && !a.includes("="));
@@ -138,7 +138,7 @@ Scope {
 
     // ── power: click once to arm, again to run (lock and sleep run at once) ──
     readonly property var power: [
-        { id: "lock",     hue: "red",  cmd: ["loginctl", "lock-session"],  confirm: false },
+        { id: "lock",     hue: "orange", cmd: ["loginctl", "lock-session"],  confirm: false },
         { id: "sleep",    hue: "blue", cmd: ["systemctl", "suspend"],       confirm: false },
         { id: "reboot",   hue: "gold", cmd: ["systemctl", "reboot"],        confirm: true },
         { id: "shutdown", hue: "rose", cmd: ["systemctl", "poweroff"],      confirm: true }
@@ -272,7 +272,7 @@ Scope {
                         }
                         layer.enabled: true
                         layer.effect: MultiEffect {
-                            shadowEnabled: true; shadowColor: Theme.orange
+                            shadowEnabled: true; shadowColor: Theme.red
                             shadowBlur: 0.35; shadowOpacity: 0.3
                             shadowHorizontalOffset: 0; shadowVerticalOffset: 0
                         }
@@ -403,7 +403,7 @@ Scope {
                         Mono {
                             visible: root.results.length === 0
                             text: root.query === "" ? "no pinned apps · edit config/apps.conf" : "λ: command not found: " + root.query
-                            color: root.query === "" ? Theme.faint : Theme.red
+                            color: root.query === "" ? Theme.faint : Theme.orange
                             font.pixelSize: Theme.small
                             Layout.leftMargin: 6
                         }
@@ -426,7 +426,7 @@ Scope {
                                 { k: "cpu", v: Stats.cpu, hue: Theme.amber, unit: "%" },
                                 { k: "ram", v: Stats.ram, hue: Theme.aqua, unit: "%" },
                                 { k: "gpu", v: Stats.gpu, hue: Theme.blue, unit: "%" },
-                                { k: "tmp", v: Math.min(100, Stats.temp), hue: Theme.orange, unit: "°" }
+                                { k: "tmp", v: Math.min(100, Stats.temp), hue: Theme.red, unit: "°" }
                             ]
                             Text {
                                 required property var modelData

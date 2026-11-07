@@ -17,8 +17,8 @@ Singleton {
 
     // nine neons, one per category
     readonly property color rose:   "#ff7a5c"   // media
-    readonly property color red:    "#ff6458"   // security / danger
-    readonly property color orange: "#ff9a3c"   // time / transfer
+    readonly property color red:    "#ff6458"   // THE accent: start button, clock, border, glows; time / transfer
+    readonly property color orange: "#ff9a3c"   // security / danger, urgent, errors (swapped with red)
     readonly property color gold:   "#ffc247"   // files / places
     readonly property color aqua:   "#4fd8cf"   // dev / shell, success
     readonly property color cyan:   "#45c8e6"   // FOCUS + comms

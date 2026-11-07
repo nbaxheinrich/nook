@@ -78,7 +78,7 @@ Scope {
                 layer.enabled: true
                 layer.effect: MultiEffect {
                     shadowEnabled: true
-                    shadowColor: Theme.alpha(Theme.orange, 0.9)
+                    shadowColor: Theme.alpha(Theme.red, 0.9)
                     shadowBlur: 1.0
                     shadowOpacity: 0.6
                     shadowHorizontalOffset: 0

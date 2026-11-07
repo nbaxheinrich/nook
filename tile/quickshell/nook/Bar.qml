@@ -206,12 +206,17 @@ Scope {
                     }
                 }
 
-                // ── power: opens the menu's [sys] rows; right-click locks ──
+                // ── power: solid red like λ nook; opens the menu (power buttons), right-click locks ──
                 Pill {
+                    color: Theme.red
+                    border.color: Ui.launcherOpen ? Theme.cyan : Theme.red
+                    border.width: Ui.launcherOpen ? 2 : 1
                     onClicked: m => m.button === Qt.RightButton
                         ? Quickshell.execDetached(["loginctl", "lock-session"])
                         : root.openMenu()
-                    Text { text: "⏻"; color: Theme.cream; font.pixelSize: 15 }
+                    layer.enabled: true
+                    layer.effect: Glow { shadowColor: Theme.red; shadowBlur: 0.8; shadowOpacity: 0.7 }
+                    Text { text: "⏻"; color: Theme.onAccent; font.pixelSize: 17; font.bold: true }
                 }
             }
 

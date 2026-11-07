@@ -4,7 +4,8 @@ The tiling variant of nook. It's a second session next to Plasma, built from the
 design system: neutral black and greys, nine neons with one job each, and cyan for focus.
 
 ```bash
-tile/install.sh             # packages (sudo), then link the configs
+./install.sh                # from the repo root: Plasma rice + nook-tile + login screen, all in one
+tile/install.sh             # nook-tile alone: packages (sudo), then link the configs
 tile/install.sh --no-deps   # links only
 ```
 

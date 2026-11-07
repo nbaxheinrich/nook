@@ -9,14 +9,20 @@ Wayland and two monitors (one rotated 90°). The scripts also handle Ubuntu/Kubu
 and openSUSE.
 
 ```bash
-git clone https://github.com/Himmelsw4nderer/hackmachine.git && cd hackmachine
-./install.sh                  # packages (sudo) + theme + login screen (sudo)
-./install.sh --no-deps        # theme only, no sudo (no login screen either)
+git clone https://github.com/nookware/nook.git && cd nook
+./install.sh                  # everything: packages (sudo), Plasma theme, nook-tile (Hyprland), login screen (sudo)
+./install.sh --no-deps        # no sudo: Plasma theme and nook-tile configs, no packages, no login screen
+./install.sh --no-tile        # Plasma only        (--no-plasma: nook-tile + login screen only)
+./install.sh --pastel         # login screen in the cocoa Plasma look instead of Ramen Sign
 ./scripts/sddm.sh             # just the login screen, e.g. after --no-deps
 ./scripts/uninstall.sh        # back to how things were before the first install
 ```
 
-Options: `--no-sddm` leaves the login screen alone. The rest are passed through to `scripts/apply.sh`:
+`./install.sh` runs `scripts/deps.sh` → `scripts/apply.sh` → `tile/install.sh` → `scripts/sddm.sh`. Each can also run alone.
+Without Plasma installed (Ubuntu with GNOME, say), the Plasma part is skipped and you get nook-tile and the login screen.
+nook-tile needs Fedora/Nobara 44+ or Ubuntu 26.04+; elsewhere it reports why and the rest still installs. See [tile/README.md](tile/README.md).
+
+Options: `--no-sddm` leaves the login screen alone, `--no-tile` / `--no-plasma` skip a part. The rest are passed through to `scripts/apply.sh`:
 `--no-panel` keeps your panels, `--no-widgets` skips the desktop widgets, `--no-shell` leaves
 your shell (and the command-line tools) alone, `--no-shortcuts` skips the key bindings, `--no-icons` keeps
 your icon theme, `--no-cursor` keeps your cursor.
@@ -85,7 +91,7 @@ primary screen. Plug in or rotate a monitor? Run `./install.sh --no-deps` again.
 ## Layout
 
 ```
-install.sh              entry point: deps.sh, apply.sh, then sddm.sh
+install.sh              entry point: deps.sh, apply.sh, tile/install.sh, then sddm.sh
 scripts/deps.sh         packages per distro (dnf / apt / pacman / zypper) + VT323
 scripts/apply.sh        everything per-user; backs up first to ~/.local/state/nook/
 scripts/sddm.sh         the login screen (SDDM or Plasma Login) and its cursor, system-wide (sudo); --remove undoes it

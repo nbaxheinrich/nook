@@ -1,0 +1,9 @@
+# nook-tile: Hyprland started from the login screen (without uwsm) does not start
+# graphical-session.target, so xdg-desktop-portal (Requisite= on it) never runs.
+# nook.lua starts this target after importing the Wayland environment, and stops it on exit.
+[Unit]
+Description=Hyprland session (nook-tile)
+Documentation=file://%h/proj/kde-rice/tile/README.md
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target

@@ -77,6 +77,20 @@ Scope {
             exclusiveZone: Theme.pill + 10
             color: "transparent"
 
+            // ── overflow: the clock sits in the middle, each side gets half of what's left ──
+            // left:  start + workspaces stay; the window tag takes the rest (title first, then
+            //        the whole tag, go when there's no room)
+            // right: cpu/ram goes first, then the tray icons ("bg N" stays)
+            readonly property real half: (width - clockPill.implicitWidth) / 2 - Theme.gap
+            readonly property real tagRoom: half - startPill.implicitWidth - wsPill.implicitWidth - 2 * Theme.gap
+            readonly property real tagFixed: 28 + 4 * 10 + lb.implicitWidth + appLbl.implicitWidth + dash.implicitWidth + rb.implicitWidth
+            readonly property real titleRoom: Math.min(320, tagRoom - tagFixed)
+            readonly property real bgIconsW: SystemTray.items.values.length * (16 + 10)
+            readonly property real bgFullW: bgPill.visible ? 28 + bgLbl.implicitWidth + bgIconsW + Theme.gap : 0
+            readonly property real rightCore: netbt.implicitWidth + vol.implicitWidth + powerPill.implicitWidth + 2 * Theme.gap
+            readonly property bool showCpu: rightCore + bgFullW + cpuPill.implicitWidth + Theme.gap <= half
+            readonly property bool showBgIcons: rightCore + bgFullW <= half
+
             RowLayout {
                 anchors.fill: parent
                 spacing: Theme.gap
@@ -94,8 +108,9 @@ Scope {
                     Text { text: "nook"; color: Theme.onAccent; font.family: Theme.font; font.pixelSize: Theme.body; font.bold: true }
                 }
 
-                // ── workspaces 1–9: active = cyan bar, occupied = muted, empty = faint, urgent = red ──
+                // ── workspaces 1–9: active = cyan bar, occupied = muted, empty = faint, urgent = orange ──
                 Pill {
+                    id: wsPill
                     onScrolled: w => root.dispatch(`hl.dsp.focus({ workspace = "${w.angleDelta.y < 0 ? "e+1" : "e-1"}" })`)
                     Repeater {
                         model: 9
@@ -134,27 +149,31 @@ Scope {
                 Pill {
                     id: titlePill
                     visible: (ToplevelManager.activeToplevel?.title ?? "") !== ""
-                    Label { text: "["; color: Theme.faint }
+                             && bar.tagRoom >= bar.tagFixed - dash.implicitWidth - 10
+                    Label { id: lb; text: "["; color: Theme.faint }
                     Label {
+                        id: appLbl
                         // "org.kde.dolphin" → dolphin, Chromium web apps "brave-<32 letters>-default" → brave app
                         text: (ToplevelManager.activeToplevel?.appId ?? "").replace(/^(\w+)-[a-p]{32}-\w+$/, "$1 app").split(".").pop().toLowerCase()
                         color: Theme.cyan
                     }
-                    Label { text: "—"; color: Theme.faint }
+                    Label { id: dash; text: "—"; color: Theme.faint; visible: bar.titleRoom >= 40 }
                     Label {
                         text: ToplevelManager.activeToplevel?.title ?? ""
                         color: Theme.ink
                         elide: Text.ElideRight
-                        // stop before the centred clock
-                        Layout.maximumWidth: Math.max(40, Math.min(320, clockPill.x - titlePill.x - 120 - Theme.gap))
+                        visible: bar.titleRoom >= 40
+                        Layout.maximumWidth: Math.max(40, bar.titleRoom)
                     }
-                    Label { text: "]"; color: Theme.faint }
+                    Label { id: rb; text: "]"; color: Theme.faint }
                 }
 
                 Item { Layout.fillWidth: true }
 
-                // ── cpu sparkline + ram ──
+                // ── cpu sparkline + ram (first to go when the right side is full) ──
                 Pill {
+                    id: cpuPill
+                    visible: bar.showCpu
                     Label { text: "cpu" }
                     Label { text: Stats.spark(Stats.cpuHist, 100); color: Theme.amber; font.pixelSize: 13 }
                     Label { text: Stats.cpu + "%"; color: Theme.amber }
@@ -211,15 +230,17 @@ Scope {
 
                 // ── background apps: count + icons; the pill opens the list, an icon its app ──
                 Pill {
+                    id: bgPill
                     visible: SystemTray.items.values.length > 0
                     hot: Ui.controlOpen && Ui.controlTab === "apps"
                     onClicked: Ui.openControl("apps")
-                    Label { text: "bg " + SystemTray.items.values.length; color: Theme.amber }
+                    Label { id: bgLbl; text: "bg " + SystemTray.items.values.length; color: Theme.amber }
                     Repeater {
                         model: SystemTray.items
                         IconImage {
                             id: icon
                             required property var modelData
+                            visible: bar.showBgIcons
                             source: modelData.icon
                             implicitSize: 16
                             MouseArea {
@@ -238,6 +259,7 @@ Scope {
 
                 // ── power: solid red like λ nook; opens the menu (power buttons), right-click locks ──
                 Pill {
+                    id: powerPill
                     color: Theme.red
                     border.color: Ui.launcherOpen ? Theme.cyan : Theme.red
                     border.width: Ui.launcherOpen ? 2 : 1

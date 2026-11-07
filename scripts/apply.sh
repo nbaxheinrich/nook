@@ -459,6 +459,8 @@ Name=Nook tray
 Comment=Keeps the system tray down to network, sound, microphone and battery
 Exec=$BIN/nook-tray
 NoDisplay=true
+# Plasma's tray only; nook-tile (Hyprland) runs its own autostart and has no use for it
+OnlyShowIn=KDE;
 X-KDE-autostart-phase=2
 DESKTOP
 ok "nook-tray runs at login and hides new tray icons as apps start (started below)"

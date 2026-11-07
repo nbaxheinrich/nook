@@ -6,6 +6,7 @@ import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasma5support as P5Support
+import org.kde.taskmanager as TaskManager
 
 PlasmoidItem {
     id: root
@@ -32,9 +33,26 @@ PlasmoidItem {
         onNewData: (source) => disconnectSource(source)
     }
 
+    // open windows, so a tile raises a running app instead of starting a second copy
+    TaskManager.TasksModel {
+        id: tasks
+        groupMode: TaskManager.TasksModel.GroupDisabled
+    }
+
     function quote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'" }
+    // detached and with its output on /dev/null: the DataSource closes its pipes once the shell
+    // exits, and an app still writing to them dies of EPIPE (Discord: "write EPIPE" dialog)
+    function run(cmd) { shell.connectSource("setsid -f sh -c " + quote(cmd) + " >/dev/null 2>&1 </dev/null") }
     function launch(app) {
-        shell.connectSource("gtk-launch " + quote(app.id) + " || kioclient exec " + quote(app.path))
+        for (let i = 0; i < tasks.count; i++) {
+            const idx = tasks.index(i, 0)
+            if (tasks.data(idx, TaskManager.AbstractTasksModel.IsWindow)
+                    && tasks.data(idx, TaskManager.AbstractTasksModel.AppId) === app.id) {
+                tasks.requestActivate(idx)
+                return
+            }
+        }
+        run("gtk-launch " + quote(app.id) + " || kioclient exec " + quote(app.path))
     }
 
     fullRepresentation: ColumnLayout {
@@ -151,7 +169,7 @@ PlasmoidItem {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 enabled: Plasmoid.configuration.menuCommand !== ""
-                onClicked: shell.connectSource(Plasmoid.configuration.menuCommand)
+                onClicked: root.run(Plasmoid.configuration.menuCommand)
             }
         }
     }

@@ -71,6 +71,9 @@ rm -f "$HOME/.local/bin/nook-keys" "$HOME/.local/bin/nook-tray" "$HOME/.local/bi
 source "$src/previous.env"
 [ -n "${colorscheme:-}" ] && plasma-apply-colorscheme "$colorscheme" >/dev/null 2>&1 || true
 [ -n "${desktoptheme:-}" ] && plasma-apply-desktoptheme "$desktoptheme" >/dev/null 2>&1 || true
+if [ -n "${lookandfeel:-}" ] && [ "$lookandfeel" != org.nook.desktop ]; then
+  kwrite --file kdeglobals --group KDE --key LookAndFeelPackage "$lookandfeel"
+else kwrite --file kdeglobals --group KDE --key LookAndFeelPackage --delete; fi
 changeicons=$(ls /usr/libexec/plasma-changeicons /usr/lib/*/libexec/plasma-changeicons 2>/dev/null | head -1 || true)
 [ -n "${icons:-}" ] && [ -n "$changeicons" ] && "$changeicons" "$icons" >/dev/null 2>&1 || true
 # the cursor: the oldest backup that recorded one from before Nook's
@@ -83,12 +86,12 @@ plasma-apply-cursortheme ${cursorsize:+--size "$cursorsize"} "${cursor:-breeze_c
 rm -f "$XDG_DATA_HOME/color-schemes/Nook.colors"
 rm -rf "$XDG_DATA_HOME/kwin/scripts/krohnkite" "$XDG_DATA_HOME/kwin/scripts/nook-tiling" "$XDG_DATA_HOME/aurorae/themes/Nook" \
        "$XDG_DATA_HOME/plasma/desktoptheme/nook" "$XDG_DATA_HOME/icons/Nook" \
-       "$XDG_DATA_HOME"/plasma/plasmoids/org.nook.{apps,clock,sys} \
+       "$XDG_DATA_HOME"/plasma/plasmoids/org.nook.{apps,clock,sys} "$XDG_DATA_HOME/plasma/look-and-feel/org.nook.desktop" \
        "$XDG_DATA_HOME/icons/Nook-Breeze" "$XDG_DATA_HOME/icons/Nook-Cursors"
 gdbus call --session --dest org.kde.KWin --object-path /KWin --method org.kde.KWin.reconfigure >/dev/null 2>&1 || true
 
 # the login screen is system-wide, so this part asks for sudo
-[ -e /etc/sddm.conf.d/zz-nook.conf ] && { "$REPO/scripts/sddm.sh" --remove || warn "login screen left as it is"; }
+{ [ -e /etc/sddm.conf.d/zz-nook.conf ] || [ -e /usr/share/color-schemes/Nook.colors ]; } && { "$REPO/scripts/sddm.sh" --remove || warn "login screen left as it is"; }
 
 # The panel layout lives in plasmashell's own config: restart it to load the restored file.
 kquitapp6 plasmashell >/dev/null 2>&1 || true

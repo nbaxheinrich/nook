@@ -4,8 +4,10 @@
 A pinned app that is not installed hands its slot to the first [fill] app that is installed and
 not pinned yet, so the taskbar and the desktop card keep their size on any machine.
 
-usage: apps.py CONF json       → [{"name","hue","id","icon","path"}] for the desktop card
+usage: apps.py CONF json       → [{"name","hue","id","icon","path","wmclass"}] for the desktop card
        apps.py CONF launchers  → "applications:x.desktop,…" for the taskbar
+       apps.py CONF wmclass    → "wmclass<TAB>id" per app whose windows name a different app id
+                                 (Discord's flatpak says "discord"), for the KWin rules
 """
 import json
 import os
@@ -29,18 +31,20 @@ def find(desktop_id):
     return None
 
 
-def entry_icon(path):
-    # first Icon= inside [Desktop Entry], not one of the actions below it
+def entry_key(path, key):
+    # inside [Desktop Entry], not one of the actions below it
     text = path.read_text(errors="ignore").split("\n[Desktop Action", 1)[0]
-    m = re.search(r"^Icon=(.+)$", text, re.M)
-    return m.group(1).strip() if m else "application-x-executable"
+    m = re.search(rf"^{key}=(.+)$", text, re.M)
+    return m.group(1).strip() if m else None
 
 
 def first_installed(name, hue, ids):
     for i in ids.split():
         path = find(i)
         if path:
-            return {"name": name, "hue": HUE.get(hue, hue), "id": i, "icon": entry_icon(path), "path": str(path)}
+            return {"name": name, "hue": HUE.get(hue, hue), "id": i, "path": str(path),
+                    "icon": entry_key(path, "Icon") or "application-x-executable",
+                    "wmclass": entry_key(path, "StartupWMClass")}
     return None
 
 
@@ -73,5 +77,9 @@ if __name__ == "__main__":
     apps = resolve(sys.argv[1])
     if sys.argv[2] == "json":
         print(json.dumps(apps))
+    elif sys.argv[2] == "wmclass":
+        for a in apps:
+            if a["wmclass"] and a["wmclass"] != a["id"]:
+                print(f"{a['wmclass']}\t{a['id']}")
     else:
         print(",".join(f"applications:{a['id']}.desktop" for a in apps))

@@ -14,7 +14,7 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" 
 
 hl.config({
     input = {
-        kb_layout    = "eu",            -- EurKEY, same as Plasma
+        kb_layout    = "eu,de",         -- EurKEY and German; SUPER K or the bar's kb pill switches
         follow_mouse = 1,
         sensitivity  = 0,
         touchpad     = { natural_scroll = true },

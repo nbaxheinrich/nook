@@ -5,7 +5,7 @@
 #               Remembered in ~/.local/state/nook/tile-palette.
 #   --no-deps   skip everything that needs sudo (packages, login screen); only link the configs
 #   --no-login  leave the login screen alone (by default it gets the Ramen Sign look too,
-#               via shared/login/login.sh; ./install.sh in the repo root passes this and does it itself)
+#               via shared/login/login.sh; ./nook passes this and does the login itself)
 #
 # With ramen the configs are SYMLINKS into this repo, so editing a file here changes the live
 # desktop (Hyprland reloads nook.lua on save, Quickshell its folder). Other palettes link to a

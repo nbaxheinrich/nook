@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# nook-tile game mode (SUPER G): everything that costs frames off — animations, blur, shadows,
+# window dimming, the rotating border, gaps — and back on by reloading nook.lua.
+set -euo pipefail
+on=$(hyprctl getoption animations.enabled 2>/dev/null | awk '/int|bool/{print $2; exit}')
+if [ "$on" = "1" ] || [ "$on" = "true" ]; then
+  hyprctl eval 'hl.config({
+      animations = { enabled = false },
+      decoration = { blur = { enabled = false }, shadow = { enabled = false },
+                     dim_inactive = false, inactive_opacity = 1.0 },
+      general    = { gaps_in = 0, gaps_out = 0, border_size = 1 },
+  })' >/dev/null
+  notify-send -a nook -u low "[OK] game mode on" "animations, blur, shadows and gaps off · SUPER G again to restore" 2>/dev/null || true
+else
+  hyprctl reload >/dev/null
+  notify-send -a nook -u low "[~] game mode off" "the Ramen look is back" 2>/dev/null || true
+fi

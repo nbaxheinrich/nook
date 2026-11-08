@@ -1,0 +1,47 @@
+{
+  "name": "ramen",
+  "title": "Ramen Sign",
+  "description": "a late-night noodle shop: neutral black and greys, nine neons, cyan focus, red accent",
+  "roles": {
+    "bg000": "#060606",
+    "bg100": "#0d0d0d",
+    "bg200": "#141414",
+    "bg300": "#202020",
+    "line": "#343434",
+    "ink": "#f2f2f2",
+    "muted": "#a8a8a8",
+    "faint": "#626262",
+    "media": "#ff7a5c",
+    "danger": "#ff9a3c",
+    "time": "#ff6458",
+    "files": "#ffc247",
+    "dev": "#4fd8cf",
+    "focus": "#45c8e6",
+    "net": "#62a5ff",
+    "system": "#ffb14a",
+    "session": "#ffd98f",
+    "dots": "#1e1e1e"
+  },
+  "aliases": {
+    "comms": "focus",
+    "accent": "time"
+  },
+  "ansi": [
+    "#202020",
+    "#ff6458",
+    "#4fd8cf",
+    "#ffc247",
+    "#62a5ff",
+    "#ff7a5c",
+    "#45c8e6",
+    "#a8a8a8",
+    "#626262",
+    "#ff8c82",
+    "#86ebe4",
+    "#ffd87a",
+    "#8fc0ff",
+    "#ffa38a",
+    "#7fdcf0",
+    "#f2f2f2"
+  ]
+}

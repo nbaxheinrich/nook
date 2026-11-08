@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+# λ nook v2 — one script for everything. Run it and pick in the TUI (fzf, with live previews):
+#   plasma   the KDE Plasma 6 rice (Krohnkite tiling, widgets, taskbar, …)      plasma/
+#   tile     Hyprland + Quickshell                                                tile/
+#   shell    zsh, prompt and command-line tools, each one optional               shared/shell/
+#   login    the login screen (SDDM or Plasma Login)                              shared/login/
+#   packages install what's needed (sudo)
+# Every part takes any palette (palettes/*.json): cocoa, ramen, …
+#
+# Without the TUI:
+#   ./nook install [--plasma] [--tile] [--shell[=a,b,…]] [--login] [--palette=NAME]
+#                  [--plasma-palette=…] [--tile-palette=…] [--shell-palette=…] [--login-palette=…]
+#                  [--no-deps]
+#   ./nook palette NAME      switch every installed part to NAME (no packages, no sudo except login)
+#   ./nook uninstall         put the Plasma setup back and remove the login theme
+#   ./nook help
+set -euo pipefail
+NOOK="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+. "$NOOK/lib/lib.sh"
+VERSION=2
+CONF="$NOOK_STATE/nook.conf"
+SHELL_ALL="zsh omz prompt-nook zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git"
+palettes() { ls "$NOOK/palettes"/*.json | xargs -n1 basename | sed 's/\.json$//'; }
+
+# ── choices: last run's, or sensible defaults ───────────────────────────────
+plasma=0 tile=0 shell_on=1 login=1 deps=1
+have plasmashell && plasma=1
+have Hyprland || have hyprland && tile=1
+[ "$plasma" = 0 ] && [ "$tile" = 0 ] && tile=1
+plasma_palette=$(cat "$NOOK_STATE/palette" 2>/dev/null || echo cocoa)
+[ "$plasma_palette" = pastel ] && plasma_palette=cocoa
+tile_palette=$(cat "$NOOK_STATE/tile-palette" 2>/dev/null || echo ramen)
+shell_palette=$(cat "$NOOK_STATE/shell-palette" 2>/dev/null || echo "$tile_palette")
+login_palette=$(cat "$NOOK_STATE/login-palette" 2>/dev/null || echo "$tile_palette")
+shell="$SHELL_ALL"
+# shellcheck disable=SC1090
+[ -f "$CONF" ] && . "$CONF"
+
+save() {
+  mkdir -p "$NOOK_STATE"
+  declare -p plasma tile shell_on login deps plasma_palette tile_palette shell_palette login_palette shell \
+    | sed 's/^declare -- //' > "$CONF"
+}
+
+# ── the work ────────────────────────────────────────────────────────────────
+commands() {  # one command per line, what `install` runs
+  local nd=""; [ "$deps" = 1 ] || nd=" --no-deps"
+  [ "$plasma" = 1 ] && [ "$deps" = 1 ] && echo "plasma/deps.sh"
+  if [ "$plasma" = 1 ]; then
+    if pgrep -x plasmashell >/dev/null; then echo "plasma/apply.sh --palette=$plasma_palette"
+    else echo "plasma/apply.sh --palette=$plasma_palette   # at the next Plasma login"; fi
+  fi
+  [ "$tile" = 1 ] && echo "tile/install.sh --palette=$tile_palette --no-login$nd"
+  [ "$shell_on" = 1 ] && echo "shared/shell/install.sh --palette=$shell_palette --with=$(tr ' ' ',' <<<"$shell")$nd"
+  [ "$login" = 1 ] && [ "$deps" = 1 ] && echo "shared/login/login.sh --palette=$login_palette"
+  true
+}
+
+# Plasma's apply.sh switches Plasma live, so it needs a Plasma session; from anywhere else it is
+# queued as a one-shot autostart for the next Plasma login.
+plasma_later() {
+  mkdir -p "$XDG_CONFIG_HOME/autostart"
+  cat > "$XDG_CONFIG_HOME/autostart/nook-apply-once.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=nook: apply the Plasma rice once
+Exec=sh -c '"$NOOK/plasma/apply.sh" --palette=$plasma_palette > "$NOOK_STATE/apply-once.log" 2>&1; rm -f "$XDG_CONFIG_HOME/autostart/nook-apply-once.desktop"'
+OnlyShowIn=KDE;
+NoDisplay=true
+X-KDE-autostart-phase=2
+EOF
+  ok "Plasma rice queued: it applies itself at the next Plasma login (log: ${NOOK_STATE/#$HOME/~}/apply-once.log)"
+}
+
+run_all() {
+  save
+  local failed=() line
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    printf '\n%sλ %s%s\n' "$c_mint" "$line" "$c_off"
+    if [[ $line == *"# at the next Plasma login"* ]]; then plasma_later; continue; fi
+    # shellcheck disable=SC2086
+    (cd "$NOOK" && eval "./$line") || failed+=("$line")
+  done < <(commands)
+  echo
+  if [ ${#failed[@]} -gt 0 ]; then
+    for f in "${failed[@]}"; do warn "did not finish: $f (its messages are above; run it alone to retry)"; done
+    return 1
+  fi
+  step "nook v$VERSION is in. Log out and pick your session on the login screen."
+}
+
+# ── TUI ─────────────────────────────────────────────────────────────────────
+mark() { [ "$1" = 1 ] && printf '\e[38;2;79;216;207m●\e[0m' || printf '\e[38;2;98;98;98m○\e[0m'; }
+dim()  { printf '\e[38;2;98;98;98m%s\e[0m' "$*"; }
+FZF=(fzf --ansi --layout=reverse --border=rounded --info=hidden --no-sort --cycle --pointer='▶'
+     --delimiter=$'\t' --with-nth=2 --preview-window='right,58%,border-left,wrap'
+     --color='bg:#0d0d0d,bg+:#202020,fg:#a8a8a8,fg+:#f2f2f2,hl:#ff6458,hl+:#ff6458,border:#343434,header:#626262,pointer:#45c8e6,prompt:#4fd8cf,label:#ff6458')
+
+menu_lines() {
+  local s; s=$(sed 's/prompt-//' <<<"$shell")
+  printf 'plasma\t%s plasma    %s\n' "$(mark $plasma)" "$(dim "KDE rice · $plasma_palette")"
+  printf 'tile\t%s tile      %s\n' "$(mark $tile)" "$(dim "Hyprland · $tile_palette")"
+  printf 'shell\t%s shell     %s\n' "$(mark $shell_on)" "$(dim "$shell_palette · $s")"
+  printf 'login\t%s login     %s\n' "$(mark $login)" "$(dim "login screen · $login_palette")"
+  printf 'deps\t%s packages  %s\n' "$(mark $deps)" "$(dim "install what's needed (sudo)")"
+  printf 'all\t  palette   %s\n' "$(dim "one palette for every part …")"
+  printf 'sep\t\n'
+  printf 'install\t\e[38;2;255;100;88m▶ install\e[0m\n'
+  printf 'quit\t\e[38;2;98;98;98m✗ quit\e[0m\n'
+}
+
+# preview pane: called back by fzf as `nook __preview <key>`
+preview() {
+  case "$1" in
+    plasma) python3 -I "$NOOK/lib/preview.py" desktop plasma "$plasma_palette" ;;
+    tile)   python3 -I "$NOOK/lib/preview.py" desktop tile "$tile_palette" ;;
+    shell)  python3 -I "$NOOK/lib/preview.py" palette "$shell_palette" | sed -n '1,2p;22,28p'
+            printf '\n'; dim " parts:"; printf '\n'
+            for t in $shell; do printf '  %s\n' "$t"; done ;;
+    login)  python3 -I "$NOOK/lib/preview.py" palette "$login_palette" | head -3
+            printf '\n SDDM: the nook greeter (block clock, launcher-style card, the bar)\n Plasma Login: the palette'"'"'s colours, Nook-Pixel cursor, a wallpaper\n with the glowing NOOK sign. Needs packages (sudo) to be on.\n' ;;
+    deps)   printf ' install the packages each part needs (sudo):\n  plasma: fonts, alacritty, konsole tools, rsvg …\n  tile: Hyprland 0.57 (COPR/PPA), Quickshell, kitty, mako, qt6ct …\n  shell: zsh and the tools you picked\n\n off: only configs and themes, no sudo, no login screen\n' ;;
+    all)    python3 -I "$NOOK/lib/preview.py" palette "$tile_palette" ;;
+    install) plan=$(mktemp); { echo "plasma=$plasma"; echo "tile=$tile"; echo "shell_on=$shell_on"; echo "login=$login"; echo "deps=$deps"
+             echo "plasma_palette=$plasma_palette"; echo "tile_palette=$tile_palette"; echo "shell_palette=$shell_palette"
+             echo "login_palette=$login_palette"; echo "shell=$(tr ' ' ',' <<<"$shell")"; echo "cmds=$(commands | paste -sd ';' | sed 's/;/;;/g')"; } > "$plan"
+             python3 -I "$NOOK/lib/preview.py" plan "$plan" "$tile_palette"; rm -f "$plan" ;;
+    *) ;;
+  esac
+}
+
+pick_palette() {  # VAR TITLE → sets VAR
+  local var=$1 cur=${!1} out
+  out=$(palettes | awk -v c="$cur" '{printf "%s\t%s %s\n", $1, ($1==c ? "●" : "○"), $1}' \
+    | "${FZF[@]}" --border-label=" $2 · palette " --header='⏎ pick · esc back' \
+        --preview="python3 -I '$NOOK/lib/preview.py' palette {1}" | cut -f1) || return 0
+  [ -n "$out" ] && printf -v "$var" '%s' "$out"
+}
+
+pick_shell() {
+  local out key sel t
+  while true; do
+    out=$(for t in zsh omz prompt-nook prompt-starship prompt-plain zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git; do
+            [[ " $shell " == *" $t "* ]] && m=$(mark 1) || m=$(mark 0)
+            printf '%s\t%s %s\n' "$t" "$m" "$t"
+          done; printf 'palette\t  palette   %s\n' "$(dim "$shell_palette")"; printf 'done\t\e[38;2;79;216;207m✓ done\e[0m\n')
+    out=$(printf '%s\n' "$out" | "${FZF[@]}" --expect=space --border-label=' shell ' \
+            --header='space / ⏎ toggle · prompt: pick one · esc back' \
+            --preview="python3 -I '$NOOK/lib/preview.py' shell {1} '$shell_palette'") || return 0
+    key=$(head -1 <<<"$out"); sel=$(sed -n 2p <<<"$out" | cut -f1)
+    case "$sel" in
+      done|"") return 0 ;;
+      palette) pick_palette shell_palette shell ;;
+      prompt-*) shell=$(tr ' ' '\n' <<<"$shell" | grep -v '^prompt-' | paste -sd' '); shell="$shell $sel" ;;
+      *) if [[ " $shell " == *" $sel "* ]]; then shell=$(tr ' ' '\n' <<<"$shell" | grep -vx "$sel" | paste -sd' ')
+         else shell="$shell $sel"; fi ;;
+    esac
+    shell=$(xargs <<<"$shell")
+  done
+}
+
+tui() {
+  have fzf || {
+    warn "the TUI needs fzf"
+    read -rp "  install fzf now? [Y/n] " a
+    [[ ${a:-y} == [yY]* ]] || die "or run ./nook install --help"
+    case "$(distro_family)" in fedora) sudo dnf install -y fzf ;; debian) sudo apt-get install -y fzf ;;
+      arch) sudo pacman -S --needed --noconfirm fzf ;; suse) sudo zypper install -y fzf ;; *) die "install fzf by hand" ;; esac
+  }
+  export -f preview commands mark dim; export NOOK plasma tile shell_on login deps plasma_palette tile_palette shell_palette login_palette shell
+  local out key sel
+  while true; do
+    export plasma tile shell_on login deps plasma_palette tile_palette shell_palette login_palette shell
+    out=$(menu_lines | "${FZF[@]}" --expect=space \
+            --border-label=" λ nook v$VERSION " \
+            --header=$'space: on/off · ⏎: options · ▶ install when ready' \
+            --preview="bash -c 'preview {1}'") || return 0
+    key=$(head -1 <<<"$out"); sel=$(sed -n 2p <<<"$out" | cut -f1)
+    case "$key:$sel" in
+      *:quit|*:) return 0 ;;
+      *:sep) ;;
+      space:plasma) plasma=$((1 - plasma)) ;; space:tile) tile=$((1 - tile)) ;;
+      space:shell) shell_on=$((1 - shell_on)) ;; space:login) login=$((1 - login)) ;; space:deps) deps=$((1 - deps)) ;;
+      *:plasma) pick_palette plasma_palette plasma; plasma=1 ;;
+      *:tile)   pick_palette tile_palette tile; tile=1 ;;
+      *:shell)  pick_shell; shell_on=1 ;;
+      *:login)  pick_palette login_palette login; login=1 ;;
+      *:deps)   deps=$((1 - deps)) ;;
+      *:all)    local p=$tile_palette; pick_palette p everything
+                plasma_palette=$p tile_palette=$p shell_palette=$p login_palette=$p ;;
+      *:install)
+        clear
+        preview install; echo
+        read -rp "  go? [Y/n] " a
+        [[ ${a:-y} == [yY]* ]] || continue
+        run_all; return ;;
+    esac
+  done
+}
+
+# ── command line ────────────────────────────────────────────────────────────
+case "${1:-}" in
+  ""|tui) tui ;;
+  __preview) shift; preview "$@" ;;
+  install)
+    shift; plasma=0 tile=0 shell_on=0 login=0
+    for a in "$@"; do
+      case "$a" in
+        --plasma) plasma=1 ;; --tile) tile=1 ;; --login) login=1 ;;
+        --shell) shell_on=1 ;; --shell=*) shell_on=1; shell=$(tr ',' ' ' <<<"${a#--shell=}") ;;
+        --palette=*) p=${a#--palette=}; plasma_palette=$p tile_palette=$p shell_palette=$p login_palette=$p ;;
+        --plasma-palette=*) plasma_palette=${a#*=} ;; --tile-palette=*) tile_palette=${a#*=} ;;
+        --shell-palette=*) shell_palette=${a#*=} ;; --login-palette=*) login_palette=${a#*=} ;;
+        --no-deps) deps=0 ;;
+        *) die "unknown option $a (./nook help)" ;;
+      esac
+    done
+    for p in "$plasma_palette" "$tile_palette" "$shell_palette" "$login_palette"; do
+      [ -f "$NOOK/palettes/$p.json" ] || die "unknown palette $p (have: $(palettes | paste -sd' '))"
+    done
+    [ $((plasma + tile + shell_on + login)) -gt 0 ] || die "nothing picked: --plasma, --tile, --shell, --login"
+    run_all ;;
+  palette)
+    p=${2:-}; [ -f "$NOOK/palettes/$p.json" ] || die "usage: ./nook palette NAME   (have: $(palettes | paste -sd' '))"
+    plasma_palette=$p tile_palette=$p shell_palette=$p login_palette=$p deps=0
+    run_all
+    [ "$login" = 1 ] && "$NOOK/shared/login/login.sh" --palette="$p" ;;
+  uninstall)
+    "$NOOK/plasma/uninstall.sh" || true
+    "$NOOK/shared/login/login.sh" --remove || true ;;
+  help|-h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) die "unknown command $1 (./nook help)" ;;
+esac

@@ -6,11 +6,12 @@
 -- Every bind gets a description "group: label". The Quickshell cheatsheet reads
 -- them from `hyprctl binds -j`, so this file is the only list of key bindings.
 
+-- palette colours (written with # so lib/recolor.py can switch the palette)
 local C = {
-    bg000 = "060606", bg100 = "0d0d0d", bg200 = "141414", line = "343434",
-    cyan  = "45c8e6", red = "ff6458",
+    bg000 = "#060606", bg100 = "#0d0d0d", bg200 = "#141414", line = "#343434",
+    cyan  = "#45c8e6", red = "#ff6458",
 }
-local function rgba(hex, a) return "rgba(" .. hex .. (a or "ff") .. ")" end
+local function rgba(hex, a) return "rgba(" .. hex:gsub("#", "") .. (a or "ff") .. ")" end
 
 local mod      = "SUPER"
 local term     = "kitty"
@@ -27,7 +28,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP "
         .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE "
         .. "&& systemctl --user start hyprland-session.target hyprpolkitagent "
-        .. "; qs -c nook")                              -- bar, cheatsheet, widgets, wallpaper, launcher
+        .. "; nook-session-look hyprland; qs -c nook")  -- Ramen icons for KDE apps, then the shell
     hl.exec_cmd("mako")                                 -- notifications
     hl.exec_cmd("hypridle")                             -- lock when idle
 end)
@@ -36,13 +37,23 @@ hl.on("hyprland.shutdown", function()
     hl.exec_cmd("systemctl --user stop hyprland-session.target")
 end)
 
-hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (tile/cursors/pixelcursors.py)
+hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (shared/cursors/pixelcursors.py)
 hl.env("XCURSOR_SIZE", "16")
 hl.env("HYPRCURSOR_SIZE", "16")
 -- Qt apps: qt6ct (the KDE-aware build) with the NookRamen colour scheme, Breeze style, Nook icons.
 -- Only this session reads ~/.config/qt6ct, so Plasma keeps its pastel Nook scheme.
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
+
+-- NVIDIA (proprietary driver): VA-API, GLX vendor and Electron on Wayland
+local nv = io.open("/proc/driver/nvidia/version", "r")
+if nv then
+    nv:close()
+    hl.env("LIBVA_DRIVER_NAME", "nvidia")
+    hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+    hl.env("NVD_BACKEND", "direct")
+end
+hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 
 -------------------------------------------------------------------------------
 -- look
@@ -92,7 +103,7 @@ hl.config({
         disable_hyprland_logo    = true,
         disable_splash_rendering = true,
         force_default_wallpaper  = 0,
-        background_color         = "rgb(" .. C.bg000 .. ")",
+        background_color         = "rgb(" .. C.bg000:gsub("#", "") .. ")",
     },
 
 })
@@ -116,6 +127,28 @@ end
 hl.window_rule({ match = { class = "^(org.kde.polkit-kde-authentication-agent-1|hyprpolkitagent|pavucontrol|org.pulseaudio.pavucontrol|nm-connection-editor|blueman-manager)$" }, float = true })
 hl.window_rule({ match = { title = "^(Open File|Save File|Open Folder|Choose Files?).*$" }, float = true })
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })
+
+-------------------------------------------------------------------------------
+-- gaming: tearing for games, VRR in fullscreen, direct scanout, no lock mid-game
+-------------------------------------------------------------------------------
+hl.config({
+    general = { allow_tearing = true },   -- only windows with `immediate` tear
+    misc    = { vrr = 2 },                -- variable refresh rate for fullscreen windows
+    render  = { direct_scanout = 2 },     -- skip compositing for fullscreen games
+})
+-- Steam/Proton games (steam_app_<id>), gamescope, Wine/Lutris .exe windows
+hl.window_rule({
+    name             = "games",
+    match            = { class = "^(steam_app_[0-9]+|gamescope|.*\\.exe)$" },
+    immediate        = true,          -- tearing: lowest latency (needs allow_tearing)
+    idle_inhibit     = "fullscreen",  -- hypridle doesn't lock while you play fullscreen
+    content          = "game",        -- tells direct scanout / VRR it's a game
+    no_blur          = true,
+    no_dim           = true,
+    render_unfocused = true,          -- keeps rendering on the other screen
+})
+-- Steam's own small windows float
+hl.window_rule({ match = { class = "^steam$", title = "^(Friends List|Steam Settings|Properties.*|.* - Chat|Screenshot Manager)$" }, float = true })
 
 -------------------------------------------------------------------------------
 -- keybinds  (description = "group: label" → cheatsheet)
@@ -168,6 +201,7 @@ bind(MS("PRINT"), hl.dsp.exec_cmd("grim - | wl-copy"),                          
 bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet toggle"),         "system: this cheatsheet")
 bind(MS("R"),    hl.dsp.exec_cmd("pkill -x qs; qs -c nook"),                       "system: reload shell")
 bind(MS("E"),    hl.dsp.exit(),                                                    "system: exit hyprland")
+bind(M("G"),     hl.dsp.exec_cmd("nook-gamemode"),                                 "system: game mode on / off")
 
 -- media keys (no description: not on the cheatsheet)
 local L = { locked = true, repeating = true }

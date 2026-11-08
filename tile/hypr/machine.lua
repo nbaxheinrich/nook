@@ -1,5 +1,5 @@
 -- ── this machine ────────────────────────────────────────────────────────────
--- Monitors and keyboard. install.sh copies this ONCE to ~/.config/hypr/machine.lua
+-- Monitors and keyboard. tile/install.sh copies this ONCE to ~/.config/hypr/machine.lua
 -- and never overwrites it, so change it there. `hyprctl monitors` lists outputs.
 
 -- DP-2: 2560x1440 landscape, primary, on the left

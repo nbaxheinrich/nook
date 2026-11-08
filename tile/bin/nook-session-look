@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Pick the icon theme for the session that is starting. KDE apps read it from kdeglobals, which
+# both sessions share (KConfig has no per-desktop kdeglobals), so:
+#   nook-session-look hyprland  → Nook-Ramen  (nook.lua runs this at start)
+#   nook-session-look plasma    → Nook, or Nook-Ramen when Plasma itself is Ramen (apply.sh --ramen)
+#                                 (a Plasma-only autostart entry runs this)
+# Colours need no switching: under Hyprland qt6ct hands KDE apps the NookRamen scheme.
+set -euo pipefail
+state="${XDG_STATE_HOME:-$HOME/.local/state}/nook/palette"
+case "${1:-}" in
+  hyprland) want=Nook-Ramen ;;
+  plasma)   [ "$(cat "$state" 2>/dev/null)" = ramen ] && want=Nook-Ramen || want=Nook ;;
+  *) echo "usage: nook-session-look hyprland|plasma" >&2; exit 2 ;;
+esac
+icons="${XDG_DATA_HOME:-$HOME/.local/share}/icons"
+[ -d "$icons/$want" ] || exit 0                    # theme not built: leave things as they are
+cur=$(kreadconfig6 --file kdeglobals --group Icons --key Theme 2>/dev/null || true)
+[ "$cur" = "$want" ] && exit 0
+changeicons=$(ls /usr/libexec/plasma-changeicons /usr/lib/*/libexec/plasma-changeicons \
+                 /usr/lib/libexec/plasma-changeicons 2>/dev/null | head -1 || true)
+if [ "$1" = plasma ] && [ -n "$changeicons" ]; then
+  "$changeicons" "$want" >/dev/null 2>&1         # Plasma: switch live, panel included
+else
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme "$want"
+fi

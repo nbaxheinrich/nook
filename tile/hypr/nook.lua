@@ -27,7 +27,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP "
         .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE "
         .. "&& systemctl --user start hyprland-session.target hyprpolkitagent "
-        .. "; qs -c nook")                              -- bar, cheatsheet, widgets, wallpaper, launcher
+        .. "; nook-session-look hyprland; qs -c nook")  -- Ramen icons for KDE apps, then the shell
     hl.exec_cmd("mako")                                 -- notifications
     hl.exec_cmd("hypridle")                             -- lock when idle
 end)

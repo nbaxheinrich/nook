@@ -10,7 +10,8 @@
 #   --no-plasma   skip the Plasma rice (skipped by itself when Plasma isn't installed)
 #   --no-tile     skip nook-tile (Hyprland)
 #   --no-sddm     leave the login screen alone (also: --no-login)
-#   --pastel      login screen in the cocoa Plasma look instead of Ramen Sign
+#   --ramen       Plasma in Ramen Sign as well (colours, style, icons, cursor, wallpaper, terminal)
+#   --pastel      back to the cocoa look for Plasma and the login screen
 #
 # Each part can also run alone: scripts/deps.sh, scripts/apply.sh, tile/install.sh, scripts/sddm.sh.
 set -euo pipefail
@@ -24,7 +25,8 @@ for a in "$@"; do
     --no-plasma)          plasma=0 ;;
     --no-tile)            tile=0 ;;
     --no-sddm|--no-login) sddm=0 ;;
-    --pastel)             login_style=--pastel ;;
+    --pastel)             login_style=--pastel; args+=(--pastel) ;;   # Plasma and login: cocoa
+    --ramen)              login_style=""; args+=(--ramen) ;;       # Plasma in Ramen Sign too
     -h|--help)            sed -n '2,15p' "$0"; exit 0 ;;
     *)                    args+=("$a") ;;
   esac

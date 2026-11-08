@@ -8,12 +8,19 @@ Both are 9-slice SVGs: each frame is nine elements (topleft … center) plus mar
 Anything the Plasma style does not draw falls back to Breeze, which follows the colour scheme.
 """
 import json
+import os
 import sys
 from pathlib import Path
 
 BG000, BG100, BG200, BG300 = "#1a1614", "#221d1a", "#2a2420", "#372f2a"
 LINE, INK, MUTED, FAINT = "#4a3f38", "#f6ece4", "#bfae9f", "#7d6d62"
 CORAL, LAVENDER, LILAC, ON_ACCENT = "#f7a59a", "#c4b2f5", "#e2b5f0", "#221d1a"
+
+# NOOK_PALETTE=ramen: Ramen Sign (nook-tile's look) — neutral greys, cyan focus, red accent
+if os.environ.get("NOOK_PALETTE") == "ramen":
+    BG000, BG100, BG200, BG300 = "#060606", "#0d0d0d", "#141414", "#202020"
+    LINE, INK, MUTED, FAINT = "#343434", "#f2f2f2", "#a8a8a8", "#626262"
+    CORAL, LAVENDER, LILAC, ON_ACCENT = "#ff6458", "#45c8e6", "#ff6458", "#0d0d0d"
 
 
 class Doc:

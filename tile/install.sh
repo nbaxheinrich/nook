@@ -150,6 +150,9 @@ ok "~/.config/quickshell/nook (run: qs -c nook)"
 step "cursor"
 python3 -I "$TILE/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null && ok "Nook-Pixel cursor theme"
 
+# ── icons: Nook-Ramen (scripts/ramen_icons.sh), for Qt apps in this session ──
+"$REPO/scripts/ramen_icons.sh" || warn "Qt apps keep the default icons"
+
 # ── Qt apps: qt6ct with the NookRamen KDE colour scheme (Hyprland session only) ──
 step "qt apps"
 link "$TILE/qt/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
@@ -170,7 +173,10 @@ done
 # file is written, not linked
 font="JetBrains Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
 fixed=$font
-icons=$(kread --file kdeglobals --group Icons --key Theme 2>/dev/null || true)
+# Nook-Ramen when it was built above, else Plasma's icon theme, else the first one installed
+icons=""
+[ -d "$XDG_DATA_HOME/icons/Nook-Ramen" ] && icons=Nook-Ramen
+[ -n "$icons" ] || icons=$(kread --file kdeglobals --group Icons --key Theme 2>/dev/null || true)
 if [ -z "$icons" ]; then
   for t in Nook Papirus-Dark Adwaita; do
     [ -d "$XDG_DATA_HOME/icons/$t" ] || [ -d "/usr/share/icons/$t" ] && { icons=$t; break; }
@@ -211,6 +217,19 @@ if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; the
   printf 'shell %s\n' "$zsh_bin" >> "$CFG/kitty/kitty.conf"
 fi
 link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
+link "$TILE/bin/nook-session-look"   "$HOME/.local/bin/nook-session-look"
+# Plasma puts its own icon theme back when it starts (KDE apps read it from the shared kdeglobals)
+mkdir -p "$CFG/autostart"
+cat > "$CFG/autostart/nook-session-look.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Nook session look
+Comment=Plasma's icon theme after a nook-tile (Hyprland) session
+Exec=$HOME/.local/bin/nook-session-look plasma
+NoDisplay=true
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=1
+DESKTOP
 link "$TILE/mako/config"            "$CFG/mako/config"
 link "$TILE/starship/ramen.toml"    "$CFG/starship/ramen.toml"
 link "$TILE/fastfetch/ramen.jsonc"   "$CFG/fastfetch/ramen.jsonc"

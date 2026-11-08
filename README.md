@@ -13,7 +13,8 @@ git clone https://github.com/nookware/nook.git && cd nook
 ./install.sh                  # everything: packages (sudo), Plasma theme, nook-tile (Hyprland), login screen (sudo)
 ./install.sh --no-deps        # no sudo: Plasma theme and nook-tile configs, no packages, no login screen
 ./install.sh --no-tile        # Plasma only        (--no-plasma: nook-tile + login screen only)
-./install.sh --pastel         # login screen in the cocoa Plasma look instead of Ramen Sign
+./install.sh --ramen          # Plasma in Ramen Sign too (nook-tile's look: colours, style, icons, cursor, wallpaper, terminal)
+./install.sh --pastel         # back to the cocoa look for Plasma and the login screen
 ./scripts/sddm.sh             # just the login screen, e.g. after --no-deps
 ./scripts/uninstall.sh        # back to how things were before the first install
 ```

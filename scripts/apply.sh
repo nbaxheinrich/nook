@@ -3,17 +3,22 @@
 # Everything it overwrites is copied to ~/.local/state/nook/backup-<time>/ first;
 # uninstall.sh puts the oldest backup (your pre-Nook setup) back.
 #
-# usage: apply.sh [--no-panel] [--no-shell] [--no-shortcuts] [--no-icons] [--no-cursor] [--no-widgets]
+# usage: apply.sh [--ramen|--pastel] [--no-panel] [--no-shell] [--no-shortcuts] [--no-icons] [--no-cursor] [--no-widgets]
+#   --ramen   Plasma in Ramen Sign, nook-tile's look: neutral greys, neons, cyan focus, red accent
+#             (colours, Plasma style, window frames, wallpaper, Nook-Ramen icons, Nook-Pixel cursor,
+#             Alacritty + prompt). --pastel goes back to the cocoa look. The choice is remembered.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 DO_PANEL=1 DO_SHELL=1 DO_KEYS=1 DO_ICONS=1 DO_CURSOR=1 DO_WIDGETS=1
+PALETTE=$(cat "$NOOK_STATE/palette" 2>/dev/null || echo pastel)
 for a in "$@"; do
   case "$a" in
+    --ramen) PALETTE=ramen ;; --pastel) PALETTE=pastel ;;
     --no-panel) DO_PANEL=0 ;; --no-shell) DO_SHELL=0 ;;
     --no-shortcuts) DO_KEYS=0 ;; --no-icons) DO_ICONS=0 ;; --no-cursor) DO_CURSOR=0 ;;
     --no-widgets) DO_WIDGETS=0 ;;
-    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
     *) die "unknown option $a" ;;
   esac
 done
@@ -23,6 +28,10 @@ pgrep -x plasmashell >/dev/null || die "plasmashell is not running; log into a P
 
 CFG=$XDG_CONFIG_HOME
 BIN="$HOME/.local/bin"
+# the palette every generator below reads (icons.py, themegen.py, wallpaper.py, appicons.py)
+export NOOK_PALETTE=$PALETTE
+mkdir -p "$NOOK_STATE"; echo "$PALETTE" > "$NOOK_STATE/palette"
+if [ "$PALETTE" = ramen ]; then SCHEME=NookRamen ICONS=Nook-Ramen; else SCHEME=Nook ICONS=Nook; fi
 FONT=$(mono_font)
 ZSHBIN=$(command -v zsh || true)
 SCREENS=$(screens)
@@ -53,6 +62,7 @@ ok "backup done"
 # ── 1 · files ───────────────────────────────────────────────────────────────
 step "installing theme files"
 install -Dm644 "$REPO/theme/color-schemes/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
+install -Dm644 "$REPO/tile/qt/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
 install -Dm644 "$REPO/theme/konsole/Nook.colorscheme" "$XDG_DATA_HOME/konsole/Nook.colorscheme"
 install -Dm644 "$REPO/theme/icons/nook.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg"
 install -Dm644 "$REPO/theme/icons/nook-start.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg"
@@ -127,16 +137,26 @@ ok "konsole profile (the fallback terminal), fastfetch, btop, cava, nook-keys"
 
 # Alacritty is the default terminal; Konsole stays on Ctrl+Alt+T for when something breaks.
 install -Dm644 "$REPO/theme/alacritty/nook.toml" "$CFG/alacritty/nook.toml"
+install -Dm644 "$REPO/theme/alacritty/ramen.toml" "$CFG/alacritty/ramen.toml"
 cat > "$CFG/alacritty/alacritty.toml" <<EOF
 # Written by Nook's apply.sh (re-running it overwrites this file).
 [general]
-import = ["$CFG/alacritty/nook.toml"]
+import = ["$CFG/alacritty/$([ "$PALETTE" = ramen ] && echo ramen || echo nook).toml"]
 
 [font]
 normal = { family = "$FONT" }
 size = 11
 EOF
 [ -n "$ZSHBIN" ] && printf '\n[terminal.shell]\nprogram = "%s"\n' "$ZSHBIN" >> "$CFG/alacritty/alacritty.toml"
+# Ramen: the zsh prompt in the neons (starship) and the Ramen fastfetch, like kitty in nook-tile
+if [ "$PALETTE" = ramen ]; then
+  install -Dm644 "$REPO/tile/starship/ramen.toml" "$CFG/starship/ramen.toml"
+  install -Dm644 "$REPO/tile/fastfetch/ramen.jsonc" "$CFG/fastfetch/ramen.jsonc"
+  install -Dm644 "$REPO/tile/fastfetch/ramen-logo.txt" "$CFG/fastfetch/ramen-logo.txt"
+  install -Dm644 "$REPO/theme/shell/ramen.zsh" "$NOOK_SHARE/ramen.zsh"
+  printf '\n[env]\nNOOK = "1"\nNOOK_THEME = "ramen"\nSTARSHIP_CONFIG = "%s"\nNOOK_FASTFETCH = "%s"\n' \
+    "$CFG/starship/ramen.toml" "$CFG/fastfetch/ramen.jsonc" >> "$CFG/alacritty/alacritty.toml"
+fi
 kwrite --file kdeglobals --group General --key TerminalApplication alacritty
 # its .desktop id depends on how it was installed (distro package, upstream, snap)
 for id in Alacritty com.alacritty.Alacritty alacritty_alacritty; do
@@ -224,7 +244,7 @@ fi
 
 # ── 2 · colours, plasma style, icons ─────────────────────────────────────────
 step "colours + plasma style"
-plasma-apply-colorscheme Nook >/dev/null 2>&1 || plasma-apply-colorscheme Nook
+plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || plasma-apply-colorscheme "$SCHEME"
 kwrite --file kdeglobals --group KDE --key widgetStyle Breeze
 pstyle="$XDG_DATA_HOME/plasma/desktoptheme/nook"
 rm -rf "$pstyle"
@@ -232,7 +252,7 @@ python3 "$REPO/scripts/themegen.py" plasma "$pstyle"
 # Plasma caches theme SVGs; drop the cache so a regenerated style shows up at once.
 rm -f "${XDG_CACHE_HOME:-$HOME/.cache}"/plasma-svgelements* "${XDG_CACHE_HOME:-$HOME/.cache}"/plasma_theme_nook*
 plasma-apply-desktoptheme nook >/dev/null 2>&1 || plasma-apply-desktoptheme nook
-ok "Nook colours + Plasma style (cocoa panel, lavender focus bars, rounded popups)"
+ok "$SCHEME colours + Plasma style ($PALETTE)"
 
 # The global theme holds the logout / restart / shut-down screen; what it leaves out (splash,
 # lock screen) comes from Breeze. Only its name is set: plasma-apply-lookandfeel would also
@@ -243,7 +263,17 @@ cp -r "$REPO/theme/look-and-feel/org.nook.desktop" "$lnf"
 kwrite --file kdeglobals --group KDE --key LookAndFeelPackage org.nook.desktop
 ok "global theme Nook (logout screen; preview: /usr/libexec/ksmserver-logout-greeter --windowed)"
 
-if [ "$DO_ICONS" = 1 ]; then
+if [ "$DO_ICONS" = 1 ] && [ "$PALETTE" = ramen ]; then
+  # the same icon set in the neons (also what nook-tile's Qt apps use)
+  "$REPO/scripts/ramen_icons.sh"
+  NOOK_PALETTE=ramen python3 "$REPO/scripts/appicons.py" "$XDG_DATA_HOME/icons/Nook-Ramen" "$XDG_DATA_HOME/icons/Nook-Ramen-Breeze" >/dev/null || true
+  kbuildsycoca6 >/dev/null 2>&1 || true
+  changeicons=$(ls /usr/libexec/plasma-changeicons /usr/lib/*/libexec/plasma-changeicons \
+                   /usr/lib/libexec/plasma-changeicons 2>/dev/null | head -1 || true)
+  if [ -n "$changeicons" ]; then "$changeicons" Nook-Ramen >/dev/null 2>&1 || true
+  else kwrite --file kdeglobals --group Icons --key Theme Nook-Ramen; fi
+  ok "icon theme Nook-Ramen"
+elif [ "$DO_ICONS" = 1 ]; then
   step "icons: BeautyLine + Breeze symbolic, one pastel per category"
   # BeautyLine (GPL-3) is fetched at a fixed commit and repainted locally; it is not vendored here.
   BL_REV=07e3736f8be38f9f48cf015d992f56f06e455002
@@ -287,7 +317,15 @@ if [ "$DO_ICONS" = 1 ]; then
   ok "icon theme Nook"
 fi
 
-if [ "$DO_CURSOR" = 1 ]; then
+if [ "$DO_CURSOR" = 1 ] && [ "$PALETTE" = ramen ]; then
+  step "cursor: Nook-Pixel (old-school pixel cursors)"
+  python3 -I "$REPO/tile/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null
+  plasma-apply-cursortheme --size 16 Nook-Pixel >/dev/null 2>&1 || {
+    kwrite --file kcminputrc --group Mouse --key cursorTheme Nook-Pixel
+    kwrite --file kcminputrc --group Mouse --key cursorSize 16
+  }
+  ok "cursor theme Nook-Pixel"
+elif [ "$DO_CURSOR" = 1 ]; then
   step "cursor: Posy's cursors in cocoa and cream"
   # Posy's Cursor (Michiel de Boer; Linux port by simtrami, CC BY-NC 4.0) is fetched at a fixed
   # commit and recoloured locally; it is not vendored here.

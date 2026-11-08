@@ -11,6 +11,7 @@ The category comes from, in order:
   3. the icon's context folder (DEFAULTS below).
 
 usage: icons.py SRC DEST "Theme Name" "Inherits,list" [--keep-semantic] [--symbolic-only]
+       NOOK_PALETTE=ramen icons.py …   the same in Ramen Sign's neons (nook-tile)
 
 --symbolic-only keeps just the small single-colour icons (16/22/24 px folders and *-symbolic);
 full-colour artwork would turn into solid blobs when painted in one hue.
@@ -26,6 +27,16 @@ HUE = {
     "teal": "#94dcd6", "sky": "#a3cdf5", "lavender": "#c4b2f5", "lilac": "#e2b5f0", "ink": "#f6ece4",
 }
 BG = "#221d1a"
+
+# NOOK_PALETTE=ramen: the same categories in Ramen Sign's neons (nook-tile). The role names stay
+# the pastel ones: media rose, security orange, time red, files gold, dev aqua, comms cyan,
+# network blue, system amber, session cream.
+if os.environ.get("NOOK_PALETTE") == "ramen":
+    HUE = {
+        "pink": "#ff7a5c", "coral": "#ff9a3c", "peach": "#ff6458", "butter": "#ffc247", "mint": "#4fd8cf",
+        "teal": "#45c8e6", "sky": "#62a5ff", "lavender": "#ffb14a", "lilac": "#ffd98f", "ink": "#f2f2f2",
+    }
+    BG = "#0d0d0d"
 
 # First match wins. Each word matches the start of a name token (tokens split on - . _ and digits).
 RULES = [

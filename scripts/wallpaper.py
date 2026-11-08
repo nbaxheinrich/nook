@@ -23,6 +23,13 @@ BG000, BG100, BG200, BG300 = "#1a1614", "#221d1a", "#2a2420", "#372f2a"
 LINE, INK, MUTED, FAINT = "#4a3f38", "#f6ece4", "#bfae9f", "#7d6d62"
 HUES = ["#f5a8c9", "#f7a59a", "#f9c49a", "#f2e29b", "#a6e6bf", "#94dcd6", "#a3cdf5", "#c4b2f5", "#e2b5f0"]
 PINK, CORAL, PEACH, BUTTER, MINT, TEAL, SKY, LAVENDER, LILAC = HUES
+
+# NOOK_PALETTE=ramen: Ramen Sign — neutral greys and the neons (role names stay the pastel ones)
+if os.environ.get("NOOK_PALETTE") == "ramen":
+    BG000, BG100, BG200, BG300 = "#060606", "#0d0d0d", "#141414", "#202020"
+    LINE, INK, MUTED, FAINT = "#343434", "#f2f2f2", "#a8a8a8", "#626262"
+    HUES = ["#ff7a5c", "#ff6458", "#ff9a3c", "#ffc247", "#4fd8cf", "#45c8e6", "#62a5ff", "#ffb14a", "#ffd98f"]
+    PINK, CORAL, PEACH, BUTTER, MINT, TEAL, SKY, LAVENDER, LILAC = HUES
 GROUP_HUE = {"apps": MINT, "session": LILAC, "windows": SKY, "desktop": LAVENDER, "tools": PEACH}
 
 BANNER = """\

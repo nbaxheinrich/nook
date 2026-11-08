@@ -32,6 +32,8 @@ BIN="$HOME/.local/bin"
 export NOOK_PALETTE=$PALETTE
 mkdir -p "$NOOK_STATE"; echo "$PALETTE" > "$NOOK_STATE/palette"
 if [ "$PALETTE" = ramen ]; then SCHEME=NookRamen ICONS=Nook-Ramen; else SCHEME=Nook ICONS=Nook; fi
+# Ramen: files with the palette written into them are recoloured where they're installed
+ramenize() { [ "$PALETTE" = ramen ] || return 0; python3 -I "$REPO/scripts/recolor.py" "$@" >/dev/null; }
 FONT=$(mono_font)
 ZSHBIN=$(command -v zsh || true)
 SCREENS=$(screens)
@@ -66,10 +68,12 @@ install -Dm644 "$REPO/tile/qt/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/No
 install -Dm644 "$REPO/theme/konsole/Nook.colorscheme" "$XDG_DATA_HOME/konsole/Nook.colorscheme"
 install -Dm644 "$REPO/theme/icons/nook.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg"
 install -Dm644 "$REPO/theme/icons/nook-start.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg"
+ramenize "$XDG_DATA_HOME/konsole/Nook.colorscheme" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg" \
+         "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg"
 install -Dm755 "$REPO/bin/nook-keys" "$BIN/nook-keys"
 install -Dm755 "$REPO/bin/nook-tray" "$BIN/nook-tray"
 install -Dm755 "$REPO/bin/nook-brave" "$BIN/nook-brave"
-rm -rf "$NOOK_SHARE/brave-theme"; cp -r "$REPO/theme/brave/nook" "$NOOK_SHARE/brave-theme"
+rm -rf "$NOOK_SHARE/brave-theme"; cp -r "$REPO/theme/brave/nook" "$NOOK_SHARE/brave-theme"; ramenize "$NOOK_SHARE/brave-theme"
 install -Dm644 "$REPO/scripts/shortcuts.py" "$NOOK_SHARE/shortcuts.py"
 install -Dm644 "$REPO/config/shortcuts.conf" "$NOOK_SHARE/shortcuts.conf"
 install -Dm644 "$REPO/theme/shell/bashrc" "$NOOK_SHARE/bashrc"
@@ -78,6 +82,7 @@ install -Dm644 "$REPO/theme/fastfetch/nook-logo.txt" "$CFG/fastfetch/nook-logo.t
 rm -f "$CFG/fastfetch/candy-logo.txt"   # the logo before the mug
 install -Dm644 "$REPO/theme/cava/config" "$CFG/cava/config"
 install -Dm644 "$REPO/theme/btop/nook.theme" "$CFG/btop/themes/nook.theme"
+ramenize "$CFG/cava/config" "$CFG/btop/themes/nook.theme"
 if [ -f "$CFG/btop/btop.conf" ]; then
   sed -i -E 's|^color_theme *=.*|color_theme = "nook"|' "$CFG/btop/btop.conf"
 else
@@ -89,6 +94,7 @@ for pl in apps clock sys; do
   dst="$XDG_DATA_HOME/plasma/plasmoids/org.nook.$pl"
   rm -rf "$dst"; mkdir -p "$(dirname "$dst")"
   cp -r "$REPO/theme/plasmoids/org.nook.$pl" "$dst"
+  ramenize "$dst"
 done
 
 cat > "$XDG_DATA_HOME/konsole/Nook.profile" <<EOF
@@ -176,6 +182,7 @@ for zd in "${zed_dirs[@]}"; do
   # remember settings files we create, so uninstall deletes them instead of restoring ours
   [ -e "$zd/settings.json" ] || echo "$zd/settings.json" >> "$NOOK_STATE/zed-created"
   install -Dm644 "$REPO/theme/zed/nook.json" "$zd/themes/nook.json"
+  ramenize "$zd/themes/nook.json"
   python3 "$REPO/scripts/zed.py" "$zd/settings.json" "$FONT"
   ok "zed theme Nook + $FONT → ${zd/#$HOME/\~}"
 done
@@ -199,6 +206,7 @@ if [ "$DO_SHELL" = 1 ]; then
     done
     install -Dm644 "$REPO/theme/shell/nook.zsh-theme" "$omz/custom/themes/nook.zsh-theme"
     install -Dm644 "$REPO/theme/shell/zshrc" "$NOOK_SHARE/zshrc"
+    ramenize "$omz/custom/themes/nook.zsh-theme" "$NOOK_SHARE/zshrc"
     backup "$HOME/.zshrc"
     touch "$HOME/.zshrc"
     hook='[ -f "$HOME/.local/share/nook/zshrc" ] && . "$HOME/.local/share/nook/zshrc"  # nook'
@@ -223,6 +231,7 @@ if [ "$DO_SHELL" = 1 ]; then
   install -Dm644 "$REPO/theme/ripgrep/config" "$CFG/ripgrep/config"
   # bat (and delta, which reads bat's themes) gets the Nook syntax theme
   install -Dm644 "$REPO/theme/bat/Nook.tmTheme" "$CFG/bat/themes/Nook.tmTheme"
+  ramenize "$NOOK_SHARE/tools.sh" "$CFG/ripgrep/config" "$CFG/bat/themes/Nook.tmTheme"
   printf '%s\n' '# Written by Nook'"'"'s apply.sh' '--theme="Nook"' '--style="numbers,changes,header"' \
     '--italic-text=always' > "$CFG/bat/config"
   batbin=$(command -v bat || command -v batcat || true)
@@ -230,6 +239,7 @@ if [ "$DO_SHELL" = 1 ]; then
   # git: colours and aliases always, delta as the pager only when it is installed
   install -Dm644 "$REPO/theme/git/gitconfig" "$NOOK_SHARE/gitconfig"
   install -Dm644 "$REPO/theme/git/delta.gitconfig" "$NOOK_SHARE/delta.gitconfig"
+  ramenize "$NOOK_SHARE/gitconfig" "$NOOK_SHARE/delta.gitconfig"
   for inc in gitconfig delta.gitconfig; do
     git config --global --fixed-value --unset-all include.path "$NOOK_SHARE/$inc" 2>/dev/null || true
   done
@@ -260,6 +270,7 @@ ok "$SCHEME colours + Plasma style ($PALETTE)"
 lnf="$XDG_DATA_HOME/plasma/look-and-feel/org.nook.desktop"
 rm -rf "$lnf"; mkdir -p "$(dirname "$lnf")"
 cp -r "$REPO/theme/look-and-feel/org.nook.desktop" "$lnf"
+ramenize "$lnf"
 kwrite --file kdeglobals --group KDE --key LookAndFeelPackage org.nook.desktop
 ok "global theme Nook (logout screen; preview: /usr/libexec/ksmserver-logout-greeter --windowed)"
 

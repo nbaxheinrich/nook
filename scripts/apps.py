@@ -17,6 +17,9 @@ from pathlib import Path
 
 HUE = {"pink": "#f5a8c9", "coral": "#f7a59a", "peach": "#f9c49a", "butter": "#f2e29b", "mint": "#a6e6bf",
        "teal": "#94dcd6", "sky": "#a3cdf5", "lavender": "#c4b2f5", "lilac": "#e2b5f0"}
+if os.environ.get("NOOK_PALETTE") == "ramen":   # Ramen Sign (apply.sh --ramen)
+    HUE = {"pink": "#ff7a5c", "coral": "#ff9a3c", "peach": "#ff6458", "butter": "#ffc247", "mint": "#4fd8cf",
+           "teal": "#45c8e6", "sky": "#62a5ff", "lavender": "#ffb14a", "lilac": "#ffd98f"}
 DATA = os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local/share"))
 DIRS = [Path(DATA) / "applications", Path(DATA) / "flatpak/exports/share/applications",
         Path("/var/lib/flatpak/exports/share/applications"), Path("/var/lib/snapd/desktop/applications"),

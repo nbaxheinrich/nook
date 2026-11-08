@@ -6,9 +6,9 @@ usage: wled.py [--hosts=a,b] [--dry-run] [--skin]
        wled.py --remove               take nook's presets and palettes off again
 
 Devices come from config/wled.conf (or --hosts). Every palette in palettes/*.json becomes
-  a WLED custom palette  /palette<N>.json: its nine hues, fire → ice, as one gradient
-  a preset               "nook · <palette>" (slots 20, 21, …): the whole strip in that gradient,
-                         drifting slowly
+  a WLED custom palette  /palette<N>.json: four stops, network → comms → files → time
+                         (Ramen: blue → cyan → gold → red)
+  a preset               "nook · <palette>" (slots 20, 21, …): Noise 3 through that gradient
 The device's own presets stay; its presets.json is backed up to ~/.local/state/nook/wled/ first.
 Nothing changes on the LEDs until you pick a preset. --skin also writes a web-interface skin
 (/skin.css, shown once "Use custom CSS" is on in WLED's UI settings).
@@ -30,7 +30,7 @@ SLOTS = range(20, 26)
 PREFIX = "nook · "
 
 # WLED effect and palette ids (stable across 0.14 – 16.x)
-FX = {"solid": 0, "breathe": 2, "palette": 65, "colorwaves": 67, "colortwinkles": 74, "candle": 88, "flow": 110}
+FX = {"noise3": 72, "solid": 0, "breathe": 2, "palette": 65, "colorwaves": 67, "colortwinkles": 74, "candle": 88, "flow": 110}
 PAL_GRADIENT, PAL_COLORS_ONLY = 4, 5        # "* Color Gradient", "* Colors Only" (made of the segment's 3 colours)
 
 
@@ -53,26 +53,28 @@ def rgba(h, a):
 
 
 # ── presets ─────────────────────────────────────────────────────────────────
-HUES = ["media", "time", "danger", "files", "dev", "comms", "net", "system", "session"]   # fire → ice
+# the glow's gradient: network → comms → files → time. In Ramen that is blue → cyan → gold → red,
+# the palette Nils built by hand on wled-desk (2026-11-08); other palettes get their own four roles.
+GLOW = ["net", "comms", "files", "time"]
 
 
 def palette_file(r):
-    """WLED custom palette: {"palette": [pos, r, g, b, …]} with the nine hues spread over 0–255."""
+    """WLED custom palette: {"palette": [pos, r, g, b, …]} with the glow roles spread over 0–255."""
     flat = []
-    for i, h in enumerate(HUES):
-        flat += [round(i * 255 / (len(HUES) - 1))] + rgb(r[h])
+    for i, h in enumerate(GLOW):
+        flat += [round(i * 255 / (len(GLOW) - 1))] + rgb(r[h])
     return {"palette": flat}
 
 
 def glow_presets(top=255):
-    """One preset per palette: the strip in that palette's gradient, drifting slowly.
+    """One preset per palette: Noise 3 through the palette's glow gradient (wled-desk's design).
     Custom palette N is WLED palette id TOP - N (255 up to 0.15, 200 on 16.x: see custom_top)."""
     out = {}
     for n, name in enumerate(palette_names()):
         p, r = load_palette(name)
         out[str(SLOTS[n])] = {
             "n": f"{PREFIX}{name}", "on": True, "bri": 160, "transition": 15, "mainseg": 0,
-            "seg": [{"id": 0, "on": True, "fx": FX["palette"], "sx": 24, "ix": 128, "pal": top - n,
+            "seg": [{"id": 0, "on": True, "fx": FX["noise3"], "sx": 133, "ix": 128, "pal": top - n,
                      "col": [rgb(r["accent"]), rgb(r["focus"]), rgb(r["bg000"])], "rev": False, "mi": False}],
             "ql": name[0].upper()}
     return out

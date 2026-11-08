@@ -189,15 +189,19 @@ for i = 1, 9 do
     bind(MS(tostring(i)), hl.dsp.window.move({ workspace = i }), "workspaces: send window to " .. i)
 end
 bind(M("S"),          hl.dsp.workspace.toggle_special("scratch"),         "workspaces: scratchpad")
-bind(MS("S"),         hl.dsp.window.move({ workspace = "special:scratch" }), "workspaces: to scratchpad")
+bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratch" }), "workspaces: to scratchpad")
 bind(M("mouse_down"), hl.dsp.focus({ workspace = "e+1" }),                "workspaces: next (scroll)")
 bind(M("mouse_up"),   hl.dsp.focus({ workspace = "e-1" }),                "workspaces: previous (scroll)")
 
 -- system
 bind(M("L"),     hl.dsp.exec_cmd("loginctl lock-session"),                         "system: lock")
 bind(M("K"),     hl.dsp.exec_cmd("hyprctl switchxkblayout all next && qs -c nook ipc call kb refresh"),              "system: keyboard eu ⇄ de")
-bind("PRINT",    hl.dsp.exec_cmd('grim -g "$(slurp)" - | wl-copy'),               "system: screenshot area")
-bind(MS("PRINT"), hl.dsp.exec_cmd("grim - | wl-copy"),                            "system: screenshot")
+-- screenshots: saved to ~/Pictures/Screenshots, copied, notified (bin/nook-shot); SUPER ⇧ S like Plasma
+bind(MS("S"),    hl.dsp.exec_cmd("nook-shot area"),                                "system: screenshot area")
+bind(MS("W"),    hl.dsp.exec_cmd("nook-shot window"),                              "system: screenshot window")
+bind(MS("A"),    hl.dsp.exec_cmd("nook-shot screen"),                              "system: screenshot screen")
+hl.bind("PRINT",    hl.dsp.exec_cmd("nook-shot area"))
+hl.bind(MS("PRINT"), hl.dsp.exec_cmd("nook-shot screen"))
 bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet toggle"),         "system: this cheatsheet")
 bind(MS("R"),    hl.dsp.exec_cmd("pkill -x qs; qs -c nook"),                       "system: reload shell")
 bind(MS("E"),    hl.dsp.exit(),                                                    "system: exit hyprland")

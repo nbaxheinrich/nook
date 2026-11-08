@@ -1,9 +1,9 @@
-// nook-tile fastfetch (kitty sets NOOK_FASTFETCH to this file).
+// nook fastfetch "candy" (nook-tile's kitty sets NOOK_FASTFETCH to it).
 // Colours are terminal palette names, so kitty's Ramen Sign palette turns them into the neons:
 // magenta = rose, red, yellow = gold, green = aqua, cyan, blue.
 {
   "logo": {
-    "source": "~/.config/fastfetch/ramen-logo.txt",
+    "source": "~/.config/fastfetch/candy-logo.txt",
     "color": { "1": "magenta", "2": "red", "3": "yellow", "4": "green", "5": "cyan", "6": "blue", "7": "bright_yellow" },
     "padding": { "top": 1, "right": 3 }
   },

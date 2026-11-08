@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Make Hyprland (or Plasma again) the session the login screen preselects.
-# usage: tile/default-session.sh [hyprland|plasma|<name of a .desktop in /usr/share/wayland-sessions>]
+# usage: shared/login/default-session.sh [hyprland|plasma|<name of a .desktop in /usr/share/wayland-sessions>]
 #
 # Handles the common display managers (needs sudo):
 #   Plasma Login, SDDM  → [Last] Session in their state.conf (+ SDDM's DefaultSession)
 #   GDM, LightDM        → AccountsService: the per-user session
 # The session list stays as it is; this only changes what is selected by default.
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/lib.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/lib/lib.sh"
 
 name=${1:-hyprland}
 desktop=""

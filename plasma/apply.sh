@@ -8,16 +8,16 @@
 #             style, window frames, wallpaper, widgets, icons, cursor, terminal and CLI themes.
 #             cocoa = the warm pastels, ramen = Ramen Sign (neutral greys, neons). Remembered.
 set -euo pipefail
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../lib/lib.sh"
 
-DO_PANEL=1 DO_SHELL=1 DO_KEYS=1 DO_ICONS=1 DO_CURSOR=1 DO_WIDGETS=1
+DO_PANEL=1 DO_KEYS=1 DO_ICONS=1 DO_CURSOR=1 DO_WIDGETS=1
 PALETTE=$(cat "$NOOK_STATE/palette" 2>/dev/null || echo cocoa)
 [ "$PALETTE" = pastel ] && PALETTE=cocoa
 for a in "$@"; do
   case "$a" in
     --ramen) PALETTE=ramen ;; --pastel|--cocoa) PALETTE=cocoa ;;
     --palette=*) PALETTE=${a#--palette=} ;;
-    --no-panel) DO_PANEL=0 ;; --no-shell) DO_SHELL=0 ;;
+    --no-panel) DO_PANEL=0 ;; --no-shell) ;;   # the shell is its own part now (./nook)
     --no-shortcuts) DO_KEYS=0 ;; --no-icons) DO_ICONS=0 ;; --no-cursor) DO_CURSOR=0 ;;
     --no-widgets) DO_WIDGETS=0 ;;
     -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
@@ -36,13 +36,13 @@ mkdir -p "$NOOK_STATE"; echo "$PALETTE" > "$NOOK_STATE/palette"
 if [ "$PALETTE" = ramen ]; then SCHEME=NookRamen ICONS=Nook-Ramen; else SCHEME=Nook ICONS=Nook; fi
 [ -f "$REPO/palettes/$PALETTE.json" ] || die "unknown palette $PALETTE (have: $(ls "$REPO/palettes" | sed 's/\.json//' | tr '\n' ' '))"
 # files with the palette written into them (drawn in cocoa) are recoloured where they're installed
-ramenize() { [ "$PALETTE" = cocoa ] && return 0; python3 -I "$REPO/scripts/recolor.py" --from cocoa --to "$PALETTE" "$@" >/dev/null; }
+ramenize() { [ "$PALETTE" = cocoa ] && return 0; python3 -I "$REPO/lib/recolor.py" --from cocoa --to "$PALETTE" "$@" >/dev/null; }
 FONT=$(mono_font)
 ZSHBIN=$(command -v zsh || true)
 SCREENS=$(screens)
 [ -n "$SCREENS" ] || die "could not read the screen layout from plasmashell"
 # installs from before the rename (Hackmachine) and the old hack menu get cleaned up first
-source "$REPO/scripts/migrate.sh"
+source "$REPO/plasma/migrate.sh"
 BACKUP_DIR="$NOOK_STATE/backup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR" "$NOOK_SHARE" "$BIN"
 
@@ -66,37 +66,25 @@ ok "backup done"
 
 # ── 1 · files ───────────────────────────────────────────────────────────────
 step "installing theme files"
-install -Dm644 "$REPO/theme/color-schemes/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
-install -Dm644 "$REPO/tile/qt/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
-install -Dm644 "$REPO/theme/konsole/Nook.colorscheme" "$XDG_DATA_HOME/konsole/Nook.colorscheme"
-install -Dm644 "$REPO/theme/icons/nook.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg"
-install -Dm644 "$REPO/theme/icons/nook-start.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg"
+install -Dm644 "$REPO/palettes/kde/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
+install -Dm644 "$REPO/palettes/kde/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
+install -Dm644 "$REPO/plasma/theme/konsole/Nook.colorscheme" "$XDG_DATA_HOME/konsole/Nook.colorscheme"
+install -Dm644 "$REPO/shared/icons/svg/nook.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg"
+install -Dm644 "$REPO/shared/icons/svg/nook-start.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg"
 ramenize "$XDG_DATA_HOME/konsole/Nook.colorscheme" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg" \
          "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg"
-install -Dm755 "$REPO/bin/nook-keys" "$BIN/nook-keys"
-install -Dm755 "$REPO/bin/nook-tray" "$BIN/nook-tray"
-install -Dm755 "$REPO/bin/nook-brave" "$BIN/nook-brave"
-rm -rf "$NOOK_SHARE/brave-theme"; cp -r "$REPO/theme/brave/nook" "$NOOK_SHARE/brave-theme"; ramenize "$NOOK_SHARE/brave-theme"
-install -Dm644 "$REPO/scripts/shortcuts.py" "$NOOK_SHARE/shortcuts.py"
+install -Dm755 "$REPO/plasma/bin/nook-keys" "$BIN/nook-keys"
+install -Dm755 "$REPO/plasma/bin/nook-tray" "$BIN/nook-tray"
+install -Dm755 "$REPO/plasma/bin/nook-brave" "$BIN/nook-brave"
+rm -rf "$NOOK_SHARE/brave-theme"; cp -r "$REPO/plasma/theme/brave/nook" "$NOOK_SHARE/brave-theme"; ramenize "$NOOK_SHARE/brave-theme"
+install -Dm644 "$REPO/plasma/shortcuts.py" "$NOOK_SHARE/shortcuts.py"
 install -Dm644 "$REPO/config/shortcuts.conf" "$NOOK_SHARE/shortcuts.conf"
-install -Dm644 "$REPO/theme/shell/bashrc" "$NOOK_SHARE/bashrc"
-install -Dm644 "$REPO/theme/fastfetch/config.jsonc" "$CFG/fastfetch/config.jsonc"
-install -Dm644 "$REPO/theme/fastfetch/nook-logo.txt" "$CFG/fastfetch/nook-logo.txt"
-rm -f "$CFG/fastfetch/candy-logo.txt"   # the logo before the mug
-install -Dm644 "$REPO/theme/cava/config" "$CFG/cava/config"
-install -Dm644 "$REPO/theme/btop/nook.theme" "$CFG/btop/themes/nook.theme"
-ramenize "$CFG/cava/config" "$CFG/btop/themes/nook.theme"
-if [ -f "$CFG/btop/btop.conf" ]; then
-  sed -i -E 's|^color_theme *=.*|color_theme = "nook"|' "$CFG/btop/btop.conf"
-else
-  printf 'color_theme = "nook"\ntheme_background = True\n' > "$CFG/btop/btop.conf"
-fi
 gtk-update-icon-cache -q "$XDG_DATA_HOME/icons/hicolor" 2>/dev/null || true
 # Nook widgets (the panel clock needs them before the taskbar is built)
 for pl in apps clock sys; do
   dst="$XDG_DATA_HOME/plasma/plasmoids/org.nook.$pl"
   rm -rf "$dst"; mkdir -p "$(dirname "$dst")"
-  cp -r "$REPO/theme/plasmoids/org.nook.$pl" "$dst"
+  cp -r "$REPO/plasma/theme/plasmoids/org.nook.$pl" "$dst"
   ramenize "$dst"
 done
 
@@ -142,30 +130,21 @@ NOTOOLBAR
   done
 fi
 kwrite --file konsolerc --group KonsoleWindow --key ShowMenuBarByDefault false
-ok "konsole profile (the fallback terminal), fastfetch, btop, cava, nook-keys"
+ok "konsole profile (the fallback terminal), nook-keys"
 
 # Alacritty is the default terminal; Konsole stays on Ctrl+Alt+T for when something breaks.
-install -Dm644 "$REPO/theme/alacritty/nook.toml" "$CFG/alacritty/nook.toml"
-install -Dm644 "$REPO/theme/alacritty/ramen.toml" "$CFG/alacritty/ramen.toml"
+install -Dm644 "$REPO/plasma/theme/alacritty/nook.toml" "$CFG/alacritty/nook.toml"
+ramenize "$CFG/alacritty/nook.toml"
 cat > "$CFG/alacritty/alacritty.toml" <<EOF
 # Written by Nook's apply.sh (re-running it overwrites this file).
 [general]
-import = ["$CFG/alacritty/$([ "$PALETTE" = ramen ] && echo ramen || echo nook).toml"]
+import = ["$CFG/alacritty/nook.toml"]
 
 [font]
 normal = { family = "$FONT" }
 size = 11
 EOF
 [ -n "$ZSHBIN" ] && printf '\n[terminal.shell]\nprogram = "%s"\n' "$ZSHBIN" >> "$CFG/alacritty/alacritty.toml"
-# Ramen: the zsh prompt in the neons (starship) and the Ramen fastfetch, like kitty in nook-tile
-if [ "$PALETTE" = ramen ]; then
-  install -Dm644 "$REPO/tile/starship/ramen.toml" "$CFG/starship/ramen.toml"
-  install -Dm644 "$REPO/tile/fastfetch/ramen.jsonc" "$CFG/fastfetch/ramen.jsonc"
-  install -Dm644 "$REPO/tile/fastfetch/ramen-logo.txt" "$CFG/fastfetch/ramen-logo.txt"
-  install -Dm644 "$REPO/theme/shell/ramen.zsh" "$NOOK_SHARE/ramen.zsh"
-  printf '\n[env]\nNOOK = "1"\nNOOK_THEME = "ramen"\nSTARSHIP_CONFIG = "%s"\nNOOK_FASTFETCH = "%s"\n' \
-    "$CFG/starship/ramen.toml" "$CFG/fastfetch/ramen.jsonc" >> "$CFG/alacritty/alacritty.toml"
-fi
 kwrite --file kdeglobals --group General --key TerminalApplication alacritty
 # its .desktop id depends on how it was installed (distro package, upstream, snap)
 for id in Alacritty com.alacritty.Alacritty alacritty_alacritty; do
@@ -184,76 +163,14 @@ for zd in "${zed_dirs[@]}"; do
   backup "$zd/settings.json"
   # remember settings files we create, so uninstall deletes them instead of restoring ours
   [ -e "$zd/settings.json" ] || echo "$zd/settings.json" >> "$NOOK_STATE/zed-created"
-  install -Dm644 "$REPO/theme/zed/nook.json" "$zd/themes/nook.json"
+  install -Dm644 "$REPO/plasma/theme/zed/nook.json" "$zd/themes/nook.json"
   ramenize "$zd/themes/nook.json"
-  python3 "$REPO/scripts/zed.py" "$zd/settings.json" "$FONT"
+  python3 "$REPO/plasma/zed.py" "$zd/settings.json" "$FONT"
   ok "zed theme Nook + $FONT → ${zd/#$HOME/\~}"
 done
 
-if [ "$DO_SHELL" = 1 ]; then
-  hook='[ -f "$HOME/.local/share/nook/bashrc" ] && . "$HOME/.local/share/nook/bashrc"  # nook'
-  grep -qF '# nook' "$HOME/.bashrc" 2>/dev/null || printf '\n%s\n' "$hook" >> "$HOME/.bashrc"
-  ok "bash prompt + fastfetch (only inside Alacritty and the Nook Konsole)"
-fi
 
-# ── zsh: oh-my-zsh + nook theme (Konsole's Nook profile runs zsh) ──
-if [ "$DO_SHELL" = 1 ]; then
-  if [ -n "$ZSHBIN" ]; then
-    omz="$HOME/.oh-my-zsh"
-    if [ ! -d "$omz" ]; then
-      git clone -q --depth 1 https://github.com/ohmyzsh/ohmyzsh.git "$omz" && touch "$NOOK_STATE/omz-installed-by-nook"
-    fi
-    for repo in zsh-users/zsh-autosuggestions zsh-users/zsh-syntax-highlighting; do
-      dst="$omz/custom/plugins/${repo#*/}"
-      [ -d "$dst" ] || git clone -q --depth 1 "https://github.com/$repo.git" "$dst"
-    done
-    install -Dm644 "$REPO/theme/shell/nook.zsh-theme" "$omz/custom/themes/nook.zsh-theme"
-    install -Dm644 "$REPO/theme/shell/zshrc" "$NOOK_SHARE/zshrc"
-    ramenize "$omz/custom/themes/nook.zsh-theme" "$NOOK_SHARE/zshrc"
-    backup "$HOME/.zshrc"
-    touch "$HOME/.zshrc"
-    hook='[ -f "$HOME/.local/share/nook/zshrc" ] && . "$HOME/.local/share/nook/zshrc"  # nook'
-    if grep -v '# nook$' "$HOME/.zshrc" | grep -q 'oh-my-zsh.sh'; then
-      # you already load oh-my-zsh yourself: switch its theme, and add the rest (colours, tools,
-      # fastfetch) after it
-      sed -i -E 's/^ZSH_THEME=.*/ZSH_THEME="nook"/' "$HOME/.zshrc"
-      grep -qF '# nook' "$HOME/.zshrc" || printf '\n%s\n' "$hook" >> "$HOME/.zshrc"
-    elif ! grep -qF '# nook' "$HOME/.zshrc"; then
-      printf '%s\n\n%s' "$hook" \
-        "$(cat "$HOME/.zshrc")" > "$HOME/.zshrc.hm" && mv "$HOME/.zshrc.hm" "$HOME/.zshrc"
-    fi
-    ok "oh-my-zsh + nook theme; Alacritty and Konsole's Nook profile start zsh"
-  else
-    warn "zsh is not installed yet: run ./install.sh (with packages) for the oh-my-zsh setup"
-  fi
-fi
 
-# ── command-line tools: zoxide, eza, bat, delta, fd, ripgrep in the palette ──
-if [ "$DO_SHELL" = 1 ]; then
-  install -Dm644 "$REPO/theme/shell/tools.sh" "$NOOK_SHARE/tools.sh"
-  install -Dm644 "$REPO/theme/ripgrep/config" "$CFG/ripgrep/config"
-  # bat (and delta, which reads bat's themes) gets the Nook syntax theme
-  install -Dm644 "$REPO/theme/bat/Nook.tmTheme" "$CFG/bat/themes/Nook.tmTheme"
-  ramenize "$NOOK_SHARE/tools.sh" "$CFG/ripgrep/config" "$CFG/bat/themes/Nook.tmTheme"
-  printf '%s\n' '# Written by Nook'"'"'s apply.sh' '--theme="Nook"' '--style="numbers,changes,header"' \
-    '--italic-text=always' > "$CFG/bat/config"
-  batbin=$(command -v bat || command -v batcat || true)
-  [ -n "$batbin" ] && "$batbin" cache --build >/dev/null
-  # git: colours and aliases always, delta as the pager only when it is installed
-  install -Dm644 "$REPO/theme/git/gitconfig" "$NOOK_SHARE/gitconfig"
-  install -Dm644 "$REPO/theme/git/delta.gitconfig" "$NOOK_SHARE/delta.gitconfig"
-  ramenize "$NOOK_SHARE/gitconfig" "$NOOK_SHARE/delta.gitconfig"
-  for inc in gitconfig delta.gitconfig; do
-    git config --global --fixed-value --unset-all include.path "$NOOK_SHARE/$inc" 2>/dev/null || true
-  done
-  git config --global --add include.path "$NOOK_SHARE/gitconfig"
-  have delta && git config --global --add include.path "$NOOK_SHARE/delta.gitconfig"
-  tools=""
-  for t in zoxide eza bat delta fd rg; do
-    have "$t" || { [ $t = bat ] && have batcat; } || { [ $t = fd ] && have fdfind; } || tools+=" $t"
-  done
-  ok "cd → zoxide, ls → eza, cat → bat, git → delta, fzf/rg colours${tools:+ (not installed:$tools; run ./install.sh)}"
-fi
 
 # ── 2 · colours, plasma style, icons ─────────────────────────────────────────
 step "colours + plasma style"
@@ -261,7 +178,7 @@ plasma-apply-colorscheme "$SCHEME" >/dev/null 2>&1 || plasma-apply-colorscheme "
 kwrite --file kdeglobals --group KDE --key widgetStyle Breeze
 pstyle="$XDG_DATA_HOME/plasma/desktoptheme/nook"
 rm -rf "$pstyle"
-python3 "$REPO/scripts/themegen.py" plasma "$pstyle"
+python3 "$REPO/plasma/themegen.py" plasma "$pstyle"
 # Plasma caches theme SVGs; drop the cache so a regenerated style shows up at once.
 rm -f "${XDG_CACHE_HOME:-$HOME/.cache}"/plasma-svgelements* "${XDG_CACHE_HOME:-$HOME/.cache}"/plasma_theme_nook*
 plasma-apply-desktoptheme nook >/dev/null 2>&1 || plasma-apply-desktoptheme nook
@@ -272,14 +189,14 @@ ok "$SCHEME colours + Plasma style ($PALETTE)"
 # reset the panel layout.
 lnf="$XDG_DATA_HOME/plasma/look-and-feel/org.nook.desktop"
 rm -rf "$lnf"; mkdir -p "$(dirname "$lnf")"
-cp -r "$REPO/theme/look-and-feel/org.nook.desktop" "$lnf"
+cp -r "$REPO/plasma/theme/look-and-feel/org.nook.desktop" "$lnf"
 ramenize "$lnf"
 kwrite --file kdeglobals --group KDE --key LookAndFeelPackage org.nook.desktop
 ok "global theme Nook (logout screen; preview: /usr/libexec/ksmserver-logout-greeter --windowed)"
 
 if [ "$DO_ICONS" = 1 ]; then
   # BeautyLine + Breeze symbolic, one colour per category, in this palette
-  "$REPO/scripts/build_icons.sh" "$PALETTE"
+  "$REPO/shared/icons/build.sh" "$PALETTE"
   kbuildsycoca6 >/dev/null 2>&1 || true
   changeicons=$(ls /usr/libexec/plasma-changeicons /usr/lib/*/libexec/plasma-changeicons \
                    /usr/lib/libexec/plasma-changeicons 2>/dev/null | head -1 || true)
@@ -294,7 +211,7 @@ fi
 
 if [ "$DO_CURSOR" = 1 ] && [ "$PALETTE" = ramen ]; then
   step "cursor: Nook-Pixel (old-school pixel cursors)"
-  python3 -I "$REPO/tile/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null
+  python3 -I "$REPO/shared/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null
   plasma-apply-cursortheme --size 16 Nook-Pixel >/dev/null 2>&1 || {
     kwrite --file kcminputrc --group Mouse --key cursorTheme Nook-Pixel
     kwrite --file kcminputrc --group Mouse --key cursorSize 16
@@ -313,13 +230,13 @@ elif [ "$DO_CURSOR" = 1 ]; then
       | tar -xz -C "$tmp" || die "could not download Posy's cursors"
     rm -rf "$posy_src"; mv "$tmp"/posy-improved-cursor-linux-* "$posy_src" && rmdir "$tmp"
   fi
-  python3 "$REPO/scripts/cursors.py" "$posy_src/Posy_Cursor" "$XDG_DATA_HOME/icons/Nook-Cursors" "Nook-Cursors" >/dev/null
+  python3 "$REPO/plasma/cursors.py" "$posy_src/Posy_Cursor" "$XDG_DATA_HOME/icons/Nook-Cursors" "Nook-Cursors" >/dev/null
   # 32 is Posy's own base size; the theme also carries 48, 64, 96 and 128 for scaled screens
   plasma-apply-cursortheme --size 32 Nook-Cursors >/dev/null 2>&1 || {
     kwrite --file kcminputrc --group Mouse --key cursorTheme Nook-Cursors
     kwrite --file kcminputrc --group Mouse --key cursorSize 32
   }
-  ok "cursor theme Nook-Cursors (the login screen gets it from scripts/sddm.sh)"
+  ok "cursor theme Nook-Cursors (the login screen gets it from shared/login/login.sh)"
 fi
 
 # ── 3 · fonts: monospace everywhere ──────────────────────────────────────────
@@ -338,7 +255,7 @@ ok "fonts set"
 step "window decoration + rules"
 deco="$XDG_DATA_HOME/aurorae/themes/Nook"
 rm -rf "$deco"
-python3 "$REPO/scripts/themegen.py" aurorae "$deco"
+python3 "$REPO/plasma/themegen.py" aurorae "$deco"
 kwrite --file kwinrc --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
 kwrite --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Nook
 kwrite --file kwinrc --group org.kde.kdecoration2 --key BorderSize Normal
@@ -360,17 +277,17 @@ if ! grep -q "\"Version\": \"$KK_REV\"" "$kk_dir/metadata.json" 2>/dev/null; the
   rm -rf "$kk_dir"; mv "$tmp/x" "$kk_dir"; rm -rf "$tmp"
 fi
 # portrait screens start with a top/bottom split instead of side by side
-python3 "$REPO/scripts/krohnkite.py" "$kk_dir/contents/code/script.js" || warn "portrait screens keep the side-by-side split"
+python3 "$REPO/plasma/krohnkite.py" "$kk_dir/contents/code/script.js" || warn "portrait screens keep the side-by-side split"
 K=Script-krohnkite
 for side in Left Right Top Bottom Between; do
   kwrite --file kwinrc --group $K --key screenGap$side 8
 done
 kwrite --file kwinrc --group $K --key notificationDuration 600
 kwrite --file kwinrc --group Plugins --key krohnkiteEnabled true
-# arrow keys that cross to the next screen at the edge, see theme/kwin/nook-tiling
+# arrow keys that cross to the next screen at the edge, see plasma/theme/kwin/nook-tiling
 script_dir="$XDG_DATA_HOME/kwin/scripts/nook-tiling"
 rm -rf "$script_dir"; mkdir -p "$(dirname "$script_dir")"
-cp -r "$REPO/theme/kwin/nook-tiling" "$script_dir"
+cp -r "$REPO/plasma/theme/kwin/nook-tiling" "$script_dir"
 kwrite --file kwinrc --group Plugins --key nook-tilingEnabled true
 # Some apps' windows name another app id than their .desktop file (the Discord flatpak says
 # "discord"), so the taskbar can't match them to their pin and starts a second copy on click.
@@ -389,7 +306,7 @@ while IFS=$'\t' read -r wmclass id; do
   kwrite --file kwinrulesrc --group "$g" --key desktopfile "$id"
   kwrite --file kwinrulesrc --group "$g" --key desktopfilerule 2
   rules+=$'\n'"$g"
-done < <(python3 "$REPO/scripts/apps.py" "$REPO/config/apps.conf" wmclass 2>/dev/null)
+done < <(python3 "$REPO/plasma/apps.py" "$REPO/config/apps.conf" wmclass 2>/dev/null)
 rules=$(grep . <<<"$rules" | paste -sd, - || true)
 kwrite --file kwinrulesrc --group General --key rules "$rules"
 kwrite --file kwinrulesrc --group General --key count "$(awk -F, '{print NF}' <<<"$rules")"
@@ -417,7 +334,7 @@ render() {  # svg png
   if have rsvg-convert; then rsvg-convert -o "$2" "$1"
   elif have inkscape; then inkscape "$1" --export-type=png --export-filename="$2" >/dev/null 2>&1
   elif have magick; then magick -background none "$1" "$2"
-  else die "need rsvg-convert, inkscape or imagemagick to render the wallpaper (run ./install.sh)"; fi
+  else die "need rsvg-convert, inkscape or imagemagick to render the wallpaper (run ./nook with packages on)"; fi
 }
 js="" layout_in=""
 while read -r id screen x y w h; do
@@ -426,7 +343,7 @@ while read -r id screen x y w h; do
   png="$NOOK_SHARE/wallpaper-${w}x${h}-p$panel.png"
   # the desktop widgets take the free area, so the skull goes
   skull=""; [ "$DO_WIDGETS" = 1 ] && skull=--no-skull
-  python3 "$REPO/scripts/wallpaper.py" "$REPO/config/shortcuts.conf" "${png%.png}.svg" "${w}x$h" "$FONT" "$panel" $skull
+  python3 "$REPO/plasma/wallpaper.py" "$REPO/config/shortcuts.conf" "${png%.png}.svg" "${w}x$h" "$FONT" "$panel" $skull
   layout_in+="$id $screen $w $h ${png%.png}.json"$'\n'
   render "${png%.png}.svg" "$png"
   js+="d = desktopById($id); d.wallpaperPlugin = 'org.kde.image';
@@ -442,8 +359,8 @@ ok "lock screen uses the primary screen's wallpaper"
 # ── 6 · taskbar ─────────────────────────────────────────────────────────────
 if [ "$DO_PANEL" = 1 ]; then
   step "taskbar"
-  launchers=$(python3 "$REPO/scripts/apps.py" "$REPO/config/apps.conf" launchers)
-  plasma_eval "$(sed "s|__LAUNCHERS__|$launchers|" "$REPO/scripts/panel.js")" >/dev/null
+  launchers=$(python3 "$REPO/plasma/apps.py" "$REPO/config/apps.conf" launchers)
+  plasma_eval "$(sed "s|__LAUNCHERS__|$launchers|" "$REPO/plasma/panel.js")" >/dev/null
   rm -f "$NOOK_STATE/tray-seen"   # new tray: hide everything again
   ok "one auto-hiding bar: launcher + apps · colourful clock · tray"
 fi
@@ -451,12 +368,12 @@ fi
 # ── 6a · desktop widgets on every screen ────────────────────────────────────
 if [ "$DO_WIDGETS" = 1 ]; then
   step "desktop widgets: clock, system, apps on every screen"
-  apps_json=$(python3 "$REPO/scripts/apps.py" "$REPO/config/apps.conf" json)
+  apps_json=$(python3 "$REPO/plasma/apps.py" "$REPO/config/apps.conf" json)
   # the apps card's footer opens the taskbar's app launcher
   launcher_cmd="dbus-send --session --type=method_call --dest=org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.activateLauncherMenu"
   # 44px bar + its float margin
   for mode in remove add; do
-    plasma_eval "$(printf '%s' "$layout_in" | python3 "$REPO/scripts/layout.py" "$apps_json" "$launcher_cmd" 64 $mode)" >/dev/null
+    plasma_eval "$(printf '%s' "$layout_in" | python3 "$REPO/plasma/layout.py" "$apps_json" "$launcher_cmd" 64 $mode)" >/dev/null
     [ $mode = remove ] && sleep 2
   done
   ok "$(printf '%s' "$layout_in" | grep -c .) screen(s) filled; apps from config/apps.conf"
@@ -481,7 +398,7 @@ ok "nook-tray runs at login and hides new tray icons as apps start (started belo
 # ── 7 · shortcuts ───────────────────────────────────────────────────────────
 if [ "$DO_KEYS" = 1 ]; then
   step "global shortcuts"
-  python3 "$REPO/scripts/shortcuts.py" bind "$REPO/config/shortcuts.conf" "$BIN"
+  python3 "$REPO/plasma/shortcuts.py" bind "$REPO/config/shortcuts.conf" "$BIN"
 fi
 
 

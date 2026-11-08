@@ -11,8 +11,8 @@ palette folds two roles into one colour (cocoa's lavender is both focus and syst
 is time and the accent), the role listed in "roles" wins and "aliases" point the others at it.
 Terminal colours that no role covers (the brights) map by position.
 
-Hex colours (#rrggbb in any case, #rrggbbaa, #aarrggbb) and "r,g,b" triples (KDE colour files)
-are both replaced. Default: --from cocoa --to ramen (what apply.sh --ramen has always done).
+Hex colours (#rrggbb in any case, #rrggbbaa, #aarrggbb), "r,g,b" triples (KDE colour files) and
+ANSI truecolor "38;2;r;g;b" (eza) are all replaced. Default: --from cocoa --to ramen (what apply.sh --ramen has always done).
 """
 import json
 import re
@@ -57,10 +57,15 @@ class Recolor:
         self.triples = {rgb(k): rgb(v) for k, v in self.map.items()}
         tk = "|".join(re.escape(t) for t in self.triples) or "(?!)"
         self.triple = re.compile(r"(?<![\d,])(" + tk + r")(?![\d,])")
+        # ANSI truecolor "38;2;r;g;b" / "48;2;r;g;b" (eza, LS_COLORS)
+        self.semi = {k.replace(",", ";"): v.replace(",", ";") for k, v in self.triples.items()}
+        sk = "|".join(re.escape(t) for t in self.semi) or "(?!)"
+        self.ansi = re.compile(r"(?<=[34]8;2;)(" + sk + r")(?![\d;]*\d)")
 
     def __call__(self, text):
         text = self.hex.sub(lambda m: self.map[m.group("a").lower()] if m.group("a")
                             else m.group("p") + self.map[m.group("b").lower()], text)
+        text = self.ansi.sub(lambda m: self.semi[m.group(1)], text)
         return self.triple.sub(lambda m: self.triples[m.group(1)], text)
 
 

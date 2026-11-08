@@ -5,14 +5,14 @@
 #               Remembered in ~/.local/state/nook/tile-palette.
 #   --no-deps   skip everything that needs sudo (packages, login screen); only link the configs
 #   --no-login  leave the login screen alone (by default it gets the Ramen Sign look too,
-#               via scripts/sddm.sh; ./install.sh in the repo root passes this and does it itself)
+#               via shared/login/login.sh; ./install.sh in the repo root passes this and does it itself)
 #
 # With ramen the configs are SYMLINKS into this repo, so editing a file here changes the live
 # desktop (Hyprland reloads nook.lua on save, Quickshell its folder). Other palettes link to a
 # recoloured copy in ~/.local/share/nook/tile-build (re-run this after editing).
 # Nothing in the Plasma session is touched. Pick "Hyprland" on the login screen.
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/lib.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/lib.sh"
 TILE="$REPO/tile"
 CFG="$XDG_CONFIG_HOME"
 BACKUP_DIR="$NOOK_STATE/tile-backup-$(date +%Y%m%d-%H%M%S)"
@@ -130,9 +130,8 @@ if [ "$palette" = ramen ]; then
 else
   TSRC="$NOOK_SHARE/tile-build"
   rm -rf "$TSRC"; mkdir -p "$TSRC"
-  for d in hypr quickshell kitty mako starship fastfetch qt systemd; do cp -rL "$TILE/$d" "$TSRC/$d"; done
-  python3 -I "$REPO/scripts/recolor.py" --from ramen --to "$palette" "$TSRC" >/dev/null
-  sed -i "s/^env NOOK_THEME=ramen/env NOOK_THEME=$palette/" "$TSRC/kitty/nook.conf"
+  for d in hypr quickshell kitty mako qt systemd; do cp -rL "$TILE/$d" "$TSRC/$d"; done
+  python3 -I "$REPO/lib/recolor.py" --from ramen --to "$palette" "$TSRC" >/dev/null
   ok "tile recoloured ramen → $palette in ${TSRC/#$HOME/~}"
 fi
 ICONS=$([ "$palette" = ramen ] && echo Nook-Ramen || echo Nook)
@@ -169,17 +168,17 @@ ok "~/.config/quickshell/nook (run: qs -c nook)"
 
 # ── old-school pixel cursors (generated, no extra packages) ──
 step "cursor"
-python3 -I "$TILE/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null && ok "Nook-Pixel cursor theme"
+python3 -I "$REPO/shared/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null && ok "Nook-Pixel cursor theme"
 
-# ── icons in this palette (scripts/build_icons.sh), for Qt apps in this session ──
-"$REPO/scripts/build_icons.sh" "$palette" || warn "Qt apps keep the default icons"
+# ── icons in this palette (shared/icons/build.sh), for Qt apps in this session ──
+"$REPO/shared/icons/build.sh" "$palette" || warn "Qt apps keep the default icons"
 
 # ── Qt apps: qt6ct with the palette's KDE colour scheme (Hyprland session only) ──
 step "qt apps"
-link "$TILE/qt/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
-install -Dm644 "$REPO/theme/color-schemes/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
+link "$REPO/palettes/kde/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
+install -Dm644 "$REPO/palettes/kde/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
 kscheme=$([ "$palette" = ramen ] && echo NookRamen || echo Nook)
-link "$TSRC/qt/NookRamen.conf"   "$CFG/qt6ct/colors/nook-tile.conf"
+link "$TSRC/qt/qt6ct.conf"   "$CFG/qt6ct/colors/nook-tile.conf"
 # The KDE-aware qt6ct (Fedora/Nobara) loads KDE .colors schemes, so Dolphin & co. follow too;
 # plain qt6ct (Ubuntu) only reads its own palette format.
 scheme="$CFG/qt6ct/colors/nook-tile.conf"
@@ -232,7 +231,7 @@ EOF
 ok "qt6ct → $palette ($(basename "$scheme")), $style, ${icons:-default} icons, $(cut -d, -f1-2 <<<"$font")"
 
 # ── terminal, notifications, menu, fastfetch, prompt ────────────────────────
-step "kitty, mako, fastfetch, zsh, session target"
+step "kitty, mako, session target"
 link "$TSRC/kitty/nook.conf" "$CFG/kitty/nook.conf"
 touch "$CFG/kitty/kitty.conf"
 grep -q '^include nook.conf' "$CFG/kitty/kitty.conf" || printf '\ninclude nook.conf\n' >> "$CFG/kitty/kitty.conf"
@@ -254,23 +253,16 @@ OnlyShowIn=KDE;
 X-KDE-autostart-phase=1
 DESKTOP
 link "$TSRC/mako/config"            "$CFG/mako/config"
-link "$TSRC/starship/ramen.toml"    "$CFG/starship/ramen.toml"
-link "$TSRC/fastfetch/ramen.jsonc"   "$CFG/fastfetch/ramen.jsonc"
-link "$TSRC/fastfetch/ramen-logo.txt" "$CFG/fastfetch/ramen-logo.txt"
-# the nook zshrc (the KDE install hooks it into ~/.zshrc) plus the Ramen palette it loads in kitty
-install -Dm644 "$REPO/theme/shell/zshrc"     "$NOOK_SHARE/zshrc"
-install -Dm644 "$REPO/theme/shell/ramen.zsh" "$NOOK_SHARE/ramen.zsh"
-grep -qs '# nook$' "$HOME/.zshrc" || warn "the nook zsh hook is not in ~/.zshrc yet: run ./install.sh --no-deps once for the prompt"
 # graphical-session.target for the portal (Hyprland without uwsm does not start it)
 link "$TSRC/systemd/hyprland-session.target" "$CFG/systemd/user/hyprland-session.target"
 systemctl --user daemon-reload 2>/dev/null || true
-ok "kitty, mako, fastfetch, prompt ($palette), hyprland-session.target"
+ok "kitty, mako ($palette), hyprland-session.target (the shell and prompt: ./nook → shell)"
 
 [ -d "${BACKUP_DIR}" ] && ok "replaced files backed up to ${BACKUP_DIR/#$HOME/~}"
 
 # ── login screen in this palette (SDDM or Plasma Login; sudo) ──
 if [ "$deps" = 1 ] && [ "$login" = 1 ]; then
-  "$REPO/scripts/sddm.sh" $([ "$palette" = cocoa ] && echo --pastel) || warn "login screen not changed; run scripts/sddm.sh alone to see why"
+  "$REPO/shared/login/login.sh" $([ "$palette" = cocoa ] && echo --pastel) || warn "login screen not changed; run shared/login/login.sh alone to see why"
 fi
 printf '\n%sλ%s done. Log out and pick %sHyprland%s on the login screen.\n' "$c_mint" "$c_off" "$c_lav" "$c_off"
 printf '  SUPER ⏎ terminal · SUPER SPACE hack menu · SUPER / keybinds · SUPER ⇧ E back out\n'

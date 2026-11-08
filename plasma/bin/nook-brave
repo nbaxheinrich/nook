@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Load the Nook theme into Brave (or any Chromium browser). Chromium only installs
 # local themes through its own UI, so this opens the extensions page and says what to click.
-# The theme stays installed afterwards; re-run install.sh to update it in place.
+# The theme stays installed afterwards; re-run ./nook to update it in place.
 theme="${XDG_DATA_HOME:-$HOME/.local/share}/nook/brave-theme"
-[ -f "$theme/manifest.json" ] || { echo "theme not found at $theme, run install.sh first"; exit 1; }
+[ -f "$theme/manifest.json" ] || { echo "theme not found at $theme, run ./nook first"; exit 1; }
 printf '\e[38;2;196;178;245mλ Nook theme for Brave\e[0m\n'
 printf '  1. turn on \e[1mDeveloper mode\e[0m (top right of the page that just opened)\n'
 printf '  2. click \e[1mLoad unpacked\e[0m and choose:\n     \e[38;2;163;205;245m%s\e[0m\n' "$theme"

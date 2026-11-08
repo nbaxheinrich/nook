@@ -1,4 +1,4 @@
-# nook-tile prompt · Ramen Sign (starship). kitty sets STARSHIP_CONFIG to this file.
+# nook prompt (starship), drawn in Ramen Sign and recoloured to the chosen palette by shared/shell/install.sh.
 #
 #   ╭─[λ nbax@nobara-pc]─[~/proj/kde-rice]─[git:feat/nook-tile ●2 +1]─[py 3.13]
 #   ╰─▶                                                  took 4s · ✗ 1 · 14:55

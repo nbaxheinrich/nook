@@ -6,7 +6,7 @@
 -- Every bind gets a description "group: label". The Quickshell cheatsheet reads
 -- them from `hyprctl binds -j`, so this file is the only list of key bindings.
 
--- palette colours (written with # so scripts/recolor.py can switch the palette)
+-- palette colours (written with # so lib/recolor.py can switch the palette)
 local C = {
     bg000 = "#060606", bg100 = "#0d0d0d", bg200 = "#141414", line = "#343434",
     cyan  = "#45c8e6", red = "#ff6458",
@@ -37,7 +37,7 @@ hl.on("hyprland.shutdown", function()
     hl.exec_cmd("systemctl --user stop hyprland-session.target")
 end)
 
-hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (tile/cursors/pixelcursors.py)
+hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (shared/cursors/pixelcursors.py)
 hl.env("XCURSOR_SIZE", "16")
 hl.env("HYPRCURSOR_SIZE", "16")
 -- Qt apps: qt6ct (the KDE-aware build) with the NookRamen colour scheme, Breeze style, Nook icons.

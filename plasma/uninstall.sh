@@ -2,13 +2,13 @@
 # Undo Nook: restore the settings saved by the first apply.sh run and remove our files.
 # usage: uninstall.sh [backup-dir]   (default: the oldest backup, i.e. your pre-Nook setup)
 set -euo pipefail
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../lib/lib.sh"
 
 src=${1:-$(ls -d "$NOOK_STATE"/backup-* 2>/dev/null | sort | head -1 || true)}
 [ -n "$src" ] && [ -d "$src" ] || die "no backup found in ${NOOK_STATE/#$HOME/\~}"
 step "restoring from ${src/#$HOME/\~}"
 
-python3 "$REPO/scripts/shortcuts.py" unbind "$REPO/config/shortcuts.conf" || true
+python3 "$REPO/plasma/shortcuts.py" unbind "$REPO/config/shortcuts.conf" || true
 
 # kwinrulesrc / breezerc / btop.conf etc. that did not exist before get removed, the rest restored.
 for f in kdeglobals kwinrc kwinrulesrc plasmarc konsolerc kscreenlockerrc plasmashellrc \
@@ -91,7 +91,7 @@ rm -rf "$XDG_DATA_HOME/kwin/scripts/krohnkite" "$XDG_DATA_HOME/kwin/scripts/nook
 gdbus call --session --dest org.kde.KWin --object-path /KWin --method org.kde.KWin.reconfigure >/dev/null 2>&1 || true
 
 # the login screen is system-wide, so this part asks for sudo
-{ [ -e /etc/sddm.conf.d/zz-nook.conf ] || [ -e /usr/share/color-schemes/Nook.colors ]; } && { "$REPO/scripts/sddm.sh" --remove || warn "login screen left as it is"; }
+{ [ -e /etc/sddm.conf.d/zz-nook.conf ] || [ -e /usr/share/color-schemes/Nook.colors ]; } && { "$REPO/shared/login/login.sh" --remove || warn "login screen left as it is"; }
 
 # The panel layout lives in plasmashell's own config: restart it to load the restored file.
 kquitapp6 plasmashell >/dev/null 2>&1 || true

@@ -3,18 +3,20 @@
 # Everything it overwrites is copied to ~/.local/state/nook/backup-<time>/ first;
 # uninstall.sh puts the oldest backup (your pre-Nook setup) back.
 #
-# usage: apply.sh [--ramen|--pastel] [--no-panel] [--no-shell] [--no-shortcuts] [--no-icons] [--no-cursor] [--no-widgets]
-#   --ramen   Plasma in Ramen Sign, nook-tile's look: neutral greys, neons, cyan focus, red accent
-#             (colours, Plasma style, window frames, wallpaper, Nook-Ramen icons, Nook-Pixel cursor,
-#             Alacritty + prompt). --pastel goes back to the cocoa look. The choice is remembered.
+# usage: apply.sh [--palette=cocoa|ramen] [--no-panel] [--no-shell] [--no-shortcuts] [--no-icons] [--no-cursor] [--no-widgets]
+#   --palette=cocoa|ramen  (or --cocoa / --ramen) the colours for everything: colour scheme, Plasma
+#             style, window frames, wallpaper, widgets, icons, cursor, terminal and CLI themes.
+#             cocoa = the warm pastels, ramen = Ramen Sign (neutral greys, neons). Remembered.
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 DO_PANEL=1 DO_SHELL=1 DO_KEYS=1 DO_ICONS=1 DO_CURSOR=1 DO_WIDGETS=1
-PALETTE=$(cat "$NOOK_STATE/palette" 2>/dev/null || echo pastel)
+PALETTE=$(cat "$NOOK_STATE/palette" 2>/dev/null || echo cocoa)
+[ "$PALETTE" = pastel ] && PALETTE=cocoa
 for a in "$@"; do
   case "$a" in
-    --ramen) PALETTE=ramen ;; --pastel) PALETTE=pastel ;;
+    --ramen) PALETTE=ramen ;; --pastel|--cocoa) PALETTE=cocoa ;;
+    --palette=*) PALETTE=${a#--palette=} ;;
     --no-panel) DO_PANEL=0 ;; --no-shell) DO_SHELL=0 ;;
     --no-shortcuts) DO_KEYS=0 ;; --no-icons) DO_ICONS=0 ;; --no-cursor) DO_CURSOR=0 ;;
     --no-widgets) DO_WIDGETS=0 ;;
@@ -32,8 +34,9 @@ BIN="$HOME/.local/bin"
 export NOOK_PALETTE=$PALETTE
 mkdir -p "$NOOK_STATE"; echo "$PALETTE" > "$NOOK_STATE/palette"
 if [ "$PALETTE" = ramen ]; then SCHEME=NookRamen ICONS=Nook-Ramen; else SCHEME=Nook ICONS=Nook; fi
-# Ramen: files with the palette written into them are recoloured where they're installed
-ramenize() { [ "$PALETTE" = ramen ] || return 0; python3 -I "$REPO/scripts/recolor.py" "$@" >/dev/null; }
+[ -f "$REPO/palettes/$PALETTE.json" ] || die "unknown palette $PALETTE (have: $(ls "$REPO/palettes" | sed 's/\.json//' | tr '\n' ' '))"
+# files with the palette written into them (drawn in cocoa) are recoloured where they're installed
+ramenize() { [ "$PALETTE" = cocoa ] && return 0; python3 -I "$REPO/scripts/recolor.py" --from cocoa --to "$PALETTE" "$@" >/dev/null; }
 FONT=$(mono_font)
 ZSHBIN=$(command -v zsh || true)
 SCREENS=$(screens)
@@ -274,58 +277,19 @@ ramenize "$lnf"
 kwrite --file kdeglobals --group KDE --key LookAndFeelPackage org.nook.desktop
 ok "global theme Nook (logout screen; preview: /usr/libexec/ksmserver-logout-greeter --windowed)"
 
-if [ "$DO_ICONS" = 1 ] && [ "$PALETTE" = ramen ]; then
-  # the same icon set in the neons (also what nook-tile's Qt apps use)
-  "$REPO/scripts/ramen_icons.sh"
-  NOOK_PALETTE=ramen python3 "$REPO/scripts/appicons.py" "$XDG_DATA_HOME/icons/Nook-Ramen" "$XDG_DATA_HOME/icons/Nook-Ramen-Breeze" >/dev/null || true
+if [ "$DO_ICONS" = 1 ]; then
+  # BeautyLine + Breeze symbolic, one colour per category, in this palette
+  "$REPO/scripts/build_icons.sh" "$PALETTE"
   kbuildsycoca6 >/dev/null 2>&1 || true
   changeicons=$(ls /usr/libexec/plasma-changeicons /usr/lib/*/libexec/plasma-changeicons \
                    /usr/lib/libexec/plasma-changeicons 2>/dev/null | head -1 || true)
-  if [ -n "$changeicons" ]; then "$changeicons" Nook-Ramen >/dev/null 2>&1 || true
-  else kwrite --file kdeglobals --group Icons --key Theme Nook-Ramen; fi
-  ok "icon theme Nook-Ramen"
-elif [ "$DO_ICONS" = 1 ]; then
-  step "icons: BeautyLine + Breeze symbolic, one pastel per category"
-  # BeautyLine (GPL-3) is fetched at a fixed commit and repainted locally; it is not vendored here.
-  BL_REV=07e3736f8be38f9f48cf015d992f56f06e455002
-  bl_src="$NOOK_STATE/src/beautyline-$BL_REV"
-  if [ ! -f "$bl_src/index.theme" ]; then
-    mkdir -p "$NOOK_STATE/src"
-    tmp=$(mktemp -d "$NOOK_STATE/src/dl.XXXXXX")
-    curl -fsSL "https://gitlab.com/garuda-linux/themes-and-settings/artwork/beautyline/-/archive/$BL_REV/beautyline-$BL_REV.tar.gz" \
-      | tar -xz -C "$tmp" || die "could not download BeautyLine"
-    mv "$tmp"/beautyline-* "$bl_src" && rmdir "$tmp"
-  fi
-  breeze=$(ls -d /usr/share/icons/breeze-dark /usr/share/icons/breeze 2>/dev/null | head -1)
-  icons="$XDG_DATA_HOME/icons"
-  if [ -n "$breeze" ]; then
-    python3 "$REPO/scripts/icons.py" "$breeze" "$icons/Nook-Breeze" "Nook-Breeze" \
-      "breeze-dark,hicolor" --keep-semantic --symbolic-only
-  fi
-  python3 "$REPO/scripts/icons.py" "$bl_src" "$icons/Nook" "Nook" \
-    "Nook-Breeze,breeze-dark,hicolor"
-  install -Dm644 "$REPO/theme/icons/nook.svg" "$icons/Nook/apps/scalable/nook.svg"
-  install -Dm644 "$REPO/theme/icons/nook-start.svg" "$icons/Nook/apps/scalable/nook-start.svg"
-  # thin line chevrons instead of BeautyLine's filled ones (the tray's ^ among them)
-  for a in "$REPO"/theme/icons/arrows/*.svg; do install -Dm644 "$a" "$icons/Nook/actions/scalable/${a##*/}"; done
-  # a plain document for the Office category instead of BeautyLine's Microsoft Office logo
-  # (these are symlinks into other icons, so unlink before writing)
-  for n in applications-office applications-office-symbolic; do
-    rm -f "$icons/Nook/apps/scalable/$n.svg"
-    install -m644 "$REPO/theme/icons/applications-office.svg" "$icons/Nook/apps/scalable/$n.svg"
-  done
-  # apps the theme has no icon for, or whose .desktop names an image file (snaps): see appicons.py
-  python3 "$REPO/scripts/appicons.py" "$icons/Nook" "$icons/Nook-Breeze"
-  kbuildsycoca6 >/dev/null 2>&1 || true
-  changeicons=$(ls /usr/libexec/plasma-changeicons /usr/lib/*/libexec/plasma-changeicons \
-                   /usr/lib/libexec/plasma-changeicons 2>/dev/null | head -1 || true)
-  if [ -n "$changeicons" ]; then "$changeicons" Nook >/dev/null 2>&1 || true
-  else kwrite --file kdeglobals --group Icons --key Theme Nook; fi
+  if [ -n "$changeicons" ]; then "$changeicons" "$ICONS" >/dev/null 2>&1 || true
+  else kwrite --file kdeglobals --group Icons --key Theme "$ICONS"; fi
   # tell running apps (KWin's title bars too) to reload icons now instead of at the next login
   for g in 0 1 2 3 4 5; do
     dbus-send --session --type=signal /KIconLoader org.kde.KIconLoader.iconChanged int32:$g 2>/dev/null || true
   done
-  ok "icon theme Nook"
+  ok "icon theme $ICONS"
 fi
 
 if [ "$DO_CURSOR" = 1 ] && [ "$PALETTE" = ramen ]; then

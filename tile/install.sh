@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# nook-tile: Hyprland + Quickshell in the Ramen Sign design, next to (not instead of) Plasma.
-# usage: tile/install.sh [--no-deps] [--no-login]
+# nook-tile: Hyprland + Quickshell, next to (not instead of) Plasma.
+# usage: tile/install.sh [--palette=ramen|cocoa] [--no-deps] [--no-login]
+#   --palette   the colours (palettes/*.json); ramen (Ramen Sign) is what tile/ is drawn in.
+#               Remembered in ~/.local/state/nook/tile-palette.
 #   --no-deps   skip everything that needs sudo (packages, login screen); only link the configs
 #   --no-login  leave the login screen alone (by default it gets the Ramen Sign look too,
 #               via scripts/sddm.sh; ./install.sh in the repo root passes this and does it itself)
 #
-# Configs are SYMLINKS into this repo, so editing a file here changes the live desktop:
-# Hyprland reloads nook.lua on save, Quickshell reloads its folder on save.
+# With ramen the configs are SYMLINKS into this repo, so editing a file here changes the live
+# desktop (Hyprland reloads nook.lua on save, Quickshell its folder). Other palettes link to a
+# recoloured copy in ~/.local/share/nook/tile-build (re-run this after editing).
 # Nothing in the Plasma session is touched. Pick "Hyprland" on the login screen.
 set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/lib.sh"
@@ -15,8 +18,11 @@ CFG="$XDG_CONFIG_HOME"
 BACKUP_DIR="$NOOK_STATE/tile-backup-$(date +%Y%m%d-%H%M%S)"
 
 deps=1 login=1
+palette=$(cat "$NOOK_STATE/tile-palette" 2>/dev/null || echo ramen)
 for a in "$@"; do
   case "$a" in
+    --palette=*) palette=${a#--palette=} ;;
+    --ramen) palette=ramen ;; --cocoa|--pastel) palette=cocoa ;;
     --no-deps) deps=0 ;;
     --no-login|--no-sddm) login=0 ;;
     -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
@@ -116,6 +122,21 @@ if [ "$deps" = 1 ]; then
   fi
 fi
 
+# ── palette: ramen is what tile/ is drawn in; anything else is a recoloured copy ──
+[ -f "$REPO/palettes/$palette.json" ] || die "unknown palette $palette (have: $(ls "$REPO/palettes" | sed 's/\.json//' | tr '\n' ' '))"
+mkdir -p "$NOOK_STATE"; echo "$palette" > "$NOOK_STATE/tile-palette"
+if [ "$palette" = ramen ]; then
+  TSRC=$TILE
+else
+  TSRC="$NOOK_SHARE/tile-build"
+  rm -rf "$TSRC"; mkdir -p "$TSRC"
+  for d in hypr quickshell kitty mako starship fastfetch qt systemd; do cp -rL "$TILE/$d" "$TSRC/$d"; done
+  python3 -I "$REPO/scripts/recolor.py" --from ramen --to "$palette" "$TSRC" >/dev/null
+  sed -i "s/^env NOOK_THEME=ramen/env NOOK_THEME=$palette/" "$TSRC/kitty/nook.conf"
+  ok "tile recoloured ramen → $palette in ${TSRC/#$HOME/~}"
+fi
+ICONS=$([ "$palette" = ramen ] && echo Nook-Ramen || echo Nook)
+
 # link SRC to DEST; an existing real file is backed up first, an old link replaced
 link() {
   local src=$1 dest=$2
@@ -126,9 +147,9 @@ link() {
 
 # ── hyprland ────────────────────────────────────────────────────────────────
 step "hyprland"
-link "$TILE/hypr/nook.lua"       "$CFG/hypr/nook.lua"
-link "$TILE/hypr/hyprlock.conf"  "$CFG/hypr/hyprlock.conf"
-link "$TILE/hypr/hypridle.conf"  "$CFG/hypr/hypridle.conf"
+link "$TSRC/hypr/nook.lua"       "$CFG/hypr/nook.lua"
+link "$TSRC/hypr/hyprlock.conf"  "$CFG/hypr/hyprlock.conf"
+link "$TSRC/hypr/hypridle.conf"  "$CFG/hypr/hypridle.conf"
 if [ ! -e "$CFG/hypr/machine.lua" ]; then
   install -Dm644 "$TILE/hypr/machine.lua" "$CFG/hypr/machine.lua"
   ok "machine.lua written (monitors, keyboard): edit ~/.config/hypr/machine.lua"
@@ -143,26 +164,28 @@ ok "~/.config/hypr → nook.lua, machine.lua, hyprlock, hypridle"
 
 # ── quickshell ──────────────────────────────────────────────────────────────
 step "quickshell"
-link "$TILE/quickshell/nook" "$CFG/quickshell/nook"
+link "$TSRC/quickshell/nook" "$CFG/quickshell/nook"
 ok "~/.config/quickshell/nook (run: qs -c nook)"
 
 # ── old-school pixel cursors (generated, no extra packages) ──
 step "cursor"
 python3 -I "$TILE/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null && ok "Nook-Pixel cursor theme"
 
-# ── icons: Nook-Ramen (scripts/ramen_icons.sh), for Qt apps in this session ──
-"$REPO/scripts/ramen_icons.sh" || warn "Qt apps keep the default icons"
+# ── icons in this palette (scripts/build_icons.sh), for Qt apps in this session ──
+"$REPO/scripts/build_icons.sh" "$palette" || warn "Qt apps keep the default icons"
 
-# ── Qt apps: qt6ct with the NookRamen KDE colour scheme (Hyprland session only) ──
+# ── Qt apps: qt6ct with the palette's KDE colour scheme (Hyprland session only) ──
 step "qt apps"
 link "$TILE/qt/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
-link "$TILE/qt/NookRamen.conf"   "$CFG/qt6ct/colors/NookRamen.conf"
+install -Dm644 "$REPO/theme/color-schemes/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
+kscheme=$([ "$palette" = ramen ] && echo NookRamen || echo Nook)
+link "$TSRC/qt/NookRamen.conf"   "$CFG/qt6ct/colors/nook-tile.conf"
 # The KDE-aware qt6ct (Fedora/Nobara) loads KDE .colors schemes, so Dolphin & co. follow too;
 # plain qt6ct (Ubuntu) only reads its own palette format.
-scheme="$CFG/qt6ct/colors/NookRamen.conf"
+scheme="$CFG/qt6ct/colors/nook-tile.conf"
 qt6ct_bin=$(command -v qt6ct || true)
 if [ -n "$qt6ct_bin" ] && ldd "$qt6ct_bin" 2>/dev/null | grep -q KF6ColorScheme; then
-  scheme="$XDG_DATA_HOME/color-schemes/NookRamen.colors"
+  scheme="$XDG_DATA_HOME/color-schemes/$kscheme.colors"
 fi
 # Breeze when it's installed (KDE desktops), else Qt's own Fusion
 style=Fusion
@@ -173,9 +196,9 @@ done
 # file is written, not linked
 font="JetBrains Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"
 fixed=$font
-# Nook-Ramen when it was built above, else Plasma's icon theme, else the first one installed
+# the palette's icons when they were built above, else Plasma's icon theme, else the first one installed
 icons=""
-[ -d "$XDG_DATA_HOME/icons/Nook-Ramen" ] && icons=Nook-Ramen
+[ -d "$XDG_DATA_HOME/icons/$ICONS" ] && icons=$ICONS
 [ -n "$icons" ] || icons=$(kread --file kdeglobals --group Icons --key Theme 2>/dev/null || true)
 if [ -z "$icons" ]; then
   for t in Nook Papirus-Dark Adwaita; do
@@ -206,11 +229,11 @@ show_shortcuts_in_context_menus=true
 toolbutton_style=4
 underline_shortcut=1
 EOF
-ok "qt6ct → NookRamen ($(basename "$scheme")), $style, ${icons:-default} icons, $(cut -d, -f1-2 <<<"$font")"
+ok "qt6ct → $palette ($(basename "$scheme")), $style, ${icons:-default} icons, $(cut -d, -f1-2 <<<"$font")"
 
 # ── terminal, notifications, menu, fastfetch, prompt ────────────────────────
 step "kitty, mako, fastfetch, zsh, session target"
-link "$TILE/kitty/nook.conf" "$CFG/kitty/nook.conf"
+link "$TSRC/kitty/nook.conf" "$CFG/kitty/nook.conf"
 touch "$CFG/kitty/kitty.conf"
 grep -q '^include nook.conf' "$CFG/kitty/kitty.conf" || printf '\ninclude nook.conf\n' >> "$CFG/kitty/kitty.conf"
 if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; then
@@ -230,24 +253,24 @@ NoDisplay=true
 OnlyShowIn=KDE;
 X-KDE-autostart-phase=1
 DESKTOP
-link "$TILE/mako/config"            "$CFG/mako/config"
-link "$TILE/starship/ramen.toml"    "$CFG/starship/ramen.toml"
-link "$TILE/fastfetch/ramen.jsonc"   "$CFG/fastfetch/ramen.jsonc"
-link "$TILE/fastfetch/ramen-logo.txt" "$CFG/fastfetch/ramen-logo.txt"
+link "$TSRC/mako/config"            "$CFG/mako/config"
+link "$TSRC/starship/ramen.toml"    "$CFG/starship/ramen.toml"
+link "$TSRC/fastfetch/ramen.jsonc"   "$CFG/fastfetch/ramen.jsonc"
+link "$TSRC/fastfetch/ramen-logo.txt" "$CFG/fastfetch/ramen-logo.txt"
 # the nook zshrc (the KDE install hooks it into ~/.zshrc) plus the Ramen palette it loads in kitty
 install -Dm644 "$REPO/theme/shell/zshrc"     "$NOOK_SHARE/zshrc"
 install -Dm644 "$REPO/theme/shell/ramen.zsh" "$NOOK_SHARE/ramen.zsh"
 grep -qs '# nook$' "$HOME/.zshrc" || warn "the nook zsh hook is not in ~/.zshrc yet: run ./install.sh --no-deps once for the prompt"
 # graphical-session.target for the portal (Hyprland without uwsm does not start it)
-link "$TILE/systemd/hyprland-session.target" "$CFG/systemd/user/hyprland-session.target"
+link "$TSRC/systemd/hyprland-session.target" "$CFG/systemd/user/hyprland-session.target"
 systemctl --user daemon-reload 2>/dev/null || true
-ok "kitty (Ramen palette), mako, fastfetch, zsh palette, hyprland-session.target"
+ok "kitty, mako, fastfetch, prompt ($palette), hyprland-session.target"
 
 [ -d "${BACKUP_DIR}" ] && ok "replaced files backed up to ${BACKUP_DIR/#$HOME/~}"
 
-# ── login screen in Ramen Sign (SDDM or Plasma Login; sudo) ──
+# ── login screen in this palette (SDDM or Plasma Login; sudo) ──
 if [ "$deps" = 1 ] && [ "$login" = 1 ]; then
-  "$REPO/scripts/sddm.sh" || warn "login screen not changed; run scripts/sddm.sh alone to see why"
+  "$REPO/scripts/sddm.sh" $([ "$palette" = cocoa ] && echo --pastel) || warn "login screen not changed; run scripts/sddm.sh alone to see why"
 fi
 printf '\n%sλ%s done. Log out and pick %sHyprland%s on the login screen.\n' "$c_mint" "$c_off" "$c_lav" "$c_off"
 printf '  SUPER ⏎ terminal · SUPER SPACE hack menu · SUPER / keybinds · SUPER ⇧ E back out\n'

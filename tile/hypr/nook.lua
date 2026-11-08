@@ -6,11 +6,12 @@
 -- Every bind gets a description "group: label". The Quickshell cheatsheet reads
 -- them from `hyprctl binds -j`, so this file is the only list of key bindings.
 
+-- palette colours (written with # so scripts/recolor.py can switch the palette)
 local C = {
-    bg000 = "060606", bg100 = "0d0d0d", bg200 = "141414", line = "343434",
-    cyan  = "45c8e6", red = "ff6458",
+    bg000 = "#060606", bg100 = "#0d0d0d", bg200 = "#141414", line = "#343434",
+    cyan  = "#45c8e6", red = "#ff6458",
 }
-local function rgba(hex, a) return "rgba(" .. hex .. (a or "ff") .. ")" end
+local function rgba(hex, a) return "rgba(" .. hex:gsub("#", "") .. (a or "ff") .. ")" end
 
 local mod      = "SUPER"
 local term     = "kitty"
@@ -102,7 +103,7 @@ hl.config({
         disable_hyprland_logo    = true,
         disable_splash_rendering = true,
         force_default_wallpaper  = 0,
-        background_color         = "rgb(" .. C.bg000 .. ")",
+        background_color         = "rgb(" .. C.bg000:gsub("#", "") .. ")",
     },
 
 })

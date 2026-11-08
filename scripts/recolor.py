@@ -1,46 +1,67 @@
 #!/usr/bin/env python3
-"""Recolour installed Nook files from the cocoa pastels to Ramen Sign, in place.
+"""Recolour files from one Nook palette to another, in place.
 
-usage: recolor.py PATH…        (files, or folders: every text file inside is done)
+usage: recolor.py [--from cocoa] [--to ramen] PATH…   (files, or folders: every text file inside)
 
-One table, used by apply.sh --ramen for everything that has the palette written into it:
-the Plasma widgets, the logout screen, Konsole, btop, cava, bat, git/delta, fzf, Zed, Brave,
-the zsh prompt, the rice's own icons. Hex colours (#rrggbb in any case, #rrggbbaa, #aarrggbb)
-and "r,g,b" triples (KDE colour files) are both replaced. Role names stay the pastel ones:
-  cocoa grounds → neutral greys · ink/muted/faint → the Ramen greys
-  pink (media) → rose · peach (time) → red, the accent · coral (danger) → orange
-  butter → gold · mint → aqua · teal → cyan · sky → blue
-  lavender (focus) → cyan, the focus · lilac (session) → cream
+The palettes live in palettes/*.json. Each names the same roles (grounds bg000…bg300, line,
+ink/muted/faint, one hue per category: media danger time files dev comms net system session,
+plus focus and accent) and its 16 terminal colours. A colour is mapped through its role: the
+SOURCE palette's colour for a role becomes the TARGET palette's colour for that role. Where a
+palette folds two roles into one colour (cocoa's lavender is both focus and system; Ramen's red
+is time and the accent), the role listed in "roles" wins and "aliases" point the others at it.
+Terminal colours that no role covers (the brights) map by position.
+
+Hex colours (#rrggbb in any case, #rrggbbaa, #aarrggbb) and "r,g,b" triples (KDE colour files)
+are both replaced. Default: --from cocoa --to ramen (what apply.sh --ramen has always done).
 """
+import json
 import re
 import sys
 from pathlib import Path
 
-MAP = {
-    # grounds and text
-    "1a1614": "060606", "221d1a": "0d0d0d", "2a2420": "141414", "372f2a": "202020",
-    "4a3f38": "343434", "f6ece4": "f2f2f2", "bfae9f": "a8a8a8", "7d6d62": "626262",
-    # the nine hues
-    "f5a8c9": "ff7a5c", "f9c49a": "ff6458", "f7a59a": "ff9a3c", "f2e29b": "ffc247",
-    "a6e6bf": "4fd8cf", "94dcd6": "45c8e6", "a3cdf5": "62a5ff", "c4b2f5": "45c8e6",
-    "e2b5f0": "ffd98f",
-}
-_K = "|".join(MAP)
-# #rrggbb, #rrggbbaa (alpha last: Zed, CSS) and #aarrggbb (alpha first: Qt, KDE)
-HEX = re.compile(r"(?i)(?<=#)(?:(?P<a>" + _K + r")(?=(?:[0-9a-f]{2})?\b)|(?P<p>[0-9a-f]{2})(?P<b>" + _K + r")\b)")
+PALETTES = Path(__file__).resolve().parent.parent / "palettes"
+
+
+def load(name):
+    return json.loads((PALETTES / f"{name}.json").read_text())
+
+
+def colour(p, role):
+    return p["roles"].get(role) or p["roles"].get(p.get("aliases", {}).get(role, ""), None)
+
+
+def table(src, dst):
+    a, b = load(src), load(dst)
+    m = {}
+    for role, hexa in a["roles"].items():
+        target = colour(b, role)
+        if target:
+            m.setdefault(hexa.lower().lstrip("#"), target.lower().lstrip("#"))
+    for x, y in zip(a.get("ansi", []), b.get("ansi", [])):
+        m.setdefault(x.lower().lstrip("#"), y.lower().lstrip("#"))
+    return {k: v for k, v in m.items() if k != v}
 
 
 def rgb(h):
     return ",".join(str(int(h[i:i + 2], 16)) for i in (0, 2, 4))
 
 
-TRIPLES = {rgb(k): rgb(v) for k, v in MAP.items()}
-TRIPLE = re.compile(r"(?<![\d,])(" + "|".join(re.escape(t) for t in TRIPLES) + r")(?![\d,])")
+class Recolor:
+    def __init__(self, src, dst):
+        self.map = table(src, dst)
+        keys = "|".join(sorted(self.map, key=len, reverse=True)) or "(?!)"
+        # #rrggbb, #rrggbbaa (alpha last: Zed, CSS) and #aarrggbb (alpha first: Qt, KDE)
+        # after "#", or bare inside hyprlang's rgb(…) / rgba(…)
+        self.hex = re.compile(r"(?i)(?:(?<=#)|(?<=rgb\()|(?<=rgba\())(?:(?P<a>" + keys + r")(?=(?:[0-9a-f]{2})?\b)"
+                              r"|(?P<p>[0-9a-f]{2})(?P<b>" + keys + r")\b)")
+        self.triples = {rgb(k): rgb(v) for k, v in self.map.items()}
+        tk = "|".join(re.escape(t) for t in self.triples) or "(?!)"
+        self.triple = re.compile(r"(?<![\d,])(" + tk + r")(?![\d,])")
 
-
-def recolor(text):
-    text = HEX.sub(lambda m: MAP[m.group("a").lower()] if m.group("a") else m.group("p") + MAP[m.group("b").lower()], text)
-    return TRIPLE.sub(lambda m: TRIPLES[m.group(1)], text)
+    def __call__(self, text):
+        text = self.hex.sub(lambda m: self.map[m.group("a").lower()] if m.group("a")
+                            else m.group("p") + self.map[m.group("b").lower()], text)
+        return self.triple.sub(lambda m: self.triples[m.group(1)], text)
 
 
 def files(paths):
@@ -51,19 +72,27 @@ def files(paths):
             yield p
 
 
-def main():
-    changed = 0
-    for f in files(sys.argv[1:]):
+def main(argv):
+    src, dst, paths = "cocoa", "ramen", []
+    it = iter(argv)
+    for a in it:
+        if a == "--from": src = next(it)
+        elif a == "--to": dst = next(it)
+        else: paths.append(a)
+    if src == dst:
+        print("same palette, nothing to do"); return
+    rc, changed = Recolor(src, dst), 0
+    for f in files(paths):
         try:
             text = f.read_text()
         except (UnicodeDecodeError, OSError):
             continue                      # binary (png, …): nothing to do
-        new = recolor(text)
+        new = rc(text)
         if new != text:
             f.write_text(new)
             changed += 1
-    print(f"recoloured {changed} file(s)")
+    print(f"recoloured {changed} file(s) {src} → {dst}")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

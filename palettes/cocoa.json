@@ -1,0 +1,47 @@
+{
+  "name": "cocoa",
+  "title": "Cocoa",
+  "description": "warm espresso-brown surfaces, cream text, nine pastels \u2014 the original Plasma rice",
+  "roles": {
+    "bg000": "#1a1614",
+    "bg100": "#221d1a",
+    "bg200": "#2a2420",
+    "bg300": "#372f2a",
+    "line": "#4a3f38",
+    "ink": "#f6ece4",
+    "muted": "#bfae9f",
+    "faint": "#7d6d62",
+    "media": "#f5a8c9",
+    "danger": "#f7a59a",
+    "time": "#f9c49a",
+    "files": "#f2e29b",
+    "dev": "#a6e6bf",
+    "comms": "#94dcd6",
+    "net": "#a3cdf5",
+    "focus": "#c4b2f5",
+    "session": "#e2b5f0",
+    "dots": "#2e2723"
+  },
+  "aliases": {
+    "system": "focus",
+    "accent": "focus"
+  },
+  "ansi": [
+    "#372f2a",
+    "#f7a59a",
+    "#a6e6bf",
+    "#f2e29b",
+    "#a3cdf5",
+    "#f5a8c9",
+    "#94dcd6",
+    "#bfae9f",
+    "#7d6d62",
+    "#ffc2b9",
+    "#c6f6d8",
+    "#fff2bd",
+    "#c4e1ff",
+    "#e2b5f0",
+    "#b7f1ec",
+    "#f6ece4"
+  ]
+}

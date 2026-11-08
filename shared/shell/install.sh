@@ -136,8 +136,8 @@ fi
 if on fastfetch; then
   put "$CLI/fastfetch/config.jsonc" "$CFG/fastfetch/config.jsonc"
   put "$CLI/fastfetch/nook-logo.txt" "$CFG/fastfetch/nook-logo.txt"
-  put "$CLI/fastfetch/candy.jsonc" "$CFG/fastfetch/candy.jsonc" ramen
-  put "$CLI/fastfetch/candy-logo.txt" "$CFG/fastfetch/candy-logo.txt" ramen
+  put "$CLI/fastfetch/axolotl.jsonc" "$CFG/fastfetch/axolotl.jsonc" ramen
+  put "$CLI/fastfetch/axolotl-logo.txt" "$CFG/fastfetch/axolotl-logo.txt" ramen
 fi
 if on btop; then
   put "$CLI/btop/nook.theme" "$CFG/btop/themes/nook.theme"

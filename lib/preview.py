@@ -132,7 +132,7 @@ SHELL = {
     "fd": ("fd", "fast find; feeds fzf's Ctrl+T and Alt+C", "fd conf → every *conf* path"),
     "ripgrep": ("ripgrep", "rg: fast grep with smart case and palette colours", "rg TODO"),
     "fzf": ("fzf", "Ctrl+R history, Ctrl+T files, Alt+C dirs, in the palette", "Ctrl+R → λ fuzzy history"),
-    "fastfetch": ("fastfetch", "system info once per new nook terminal", "the mug (Plasma) or the candy (tile)"),
+    "fastfetch": ("fastfetch", "system info once per new nook terminal", "the mug (Plasma) or the axolotl (tile)"),
     "btop": ("btop", "system monitor with the nook theme", "SUPER ⇧ ⏎ in nook-tile"),
     "cava": ("cava", "audio visualiser bars in the palette", ""),
     "git": ("git colours", "status, branch and diff colours; git lg, git st, git last", "git lg → one-line graph"),

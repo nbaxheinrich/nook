@@ -64,7 +64,7 @@ rm -f "$HOME/.local/bin/nook-keys" "$HOME/.local/bin/nook-tray" "$HOME/.local/bi
       "$XDG_CONFIG_HOME/autostart/nook-tray.desktop" "$NOOK_STATE/tray-seen" \
       "$XDG_DATA_HOME/konsole/Nook.profile" "$XDG_DATA_HOME/konsole/Nook.colorscheme" \
       "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg" \
-      "$XDG_CONFIG_HOME/fastfetch/nook-logo.txt" "$XDG_CONFIG_HOME/fastfetch/candy-logo.txt" "$XDG_CONFIG_HOME/alacritty/nook.toml" \
+      "$XDG_CONFIG_HOME/fastfetch/nook-logo.txt" "$XDG_CONFIG_HOME/fastfetch/candy-logo.txt" "$XDG_CONFIG_HOME/fastfetch/axolotl.jsonc" "$XDG_CONFIG_HOME/fastfetch/axolotl-logo.txt" "$XDG_CONFIG_HOME/alacritty/nook.toml" \
       "$XDG_DATA_HOME/kxmlgui5/konsole/konsoleui.rc" "$XDG_DATA_HOME/kxmlgui5/konsole/sessionui.rc" "$XDG_CONFIG_HOME/btop/themes/nook.theme"
 
 # shellcheck disable=SC1091

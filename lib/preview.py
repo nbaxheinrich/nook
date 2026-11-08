@@ -158,6 +158,7 @@ def plan(path, pal):
     out.append(row("tile", f"yes · {kv.get('tile_palette')}" if yes("tile") else "no", r["focus"] if yes("tile") else r["faint"]))
     out.append(row("shell", (f"{kv.get('shell_palette')} · " + kv.get("shell", "").replace(",", " ")) if yes("shell_on") else "no", r["focus"] if yes("shell_on") else r["faint"]))
     out.append(row("login", f"yes · {kv.get('login_palette')}" if yes("login") else "no", r["focus"] if yes("login") else r["faint"]))
+    out.append(row("wled", "glow presets" if yes("wled") else "no", r["focus"] if yes("wled") else r["faint"]))
     out.append(row("packages", "yes (sudo)" if yes("deps") else "no", r["accent"] if yes("deps") else r["faint"]))
     out.append("")
     out.append(c(r["faint"], " runs:"))

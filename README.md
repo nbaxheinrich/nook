@@ -8,6 +8,8 @@ Two desktops, any palette, one script.
   center, the cheatsheet on the wallpaper and gaming tweaks. See [tile/README.md](tile/README.md).
 - **shell**: zsh, the prompt (nook theme or starship) and the command-line tools (zoxide, eza, bat,
   delta, fd, ripgrep, fzf, fastfetch, btop, cava, git colours). Each one is optional.
+- **wled**: WLED LED strips. Every palette becomes a WLED custom palette and a glow preset
+  `nook · <palette>`, and the strips glow in that palette (devices in `config/wled.conf`).
 - **login**: the login screen. The nook greeter for SDDM, or palette, cursor and wallpaper for
   Plasma Login.
 
@@ -74,6 +76,7 @@ shared/
   icons/                build.sh <palette>, icons.py, appicons.py, svg/ (the rice's own icons)
   cursors/              pixelcursors.py (Nook-Pixel)
   login/                login.sh (SDDM / Plasma Login), the SDDM theme, the login wallpaper
+  wled/                 wled.py: palettes + glow presets on WLED devices (--scan, --dry-run, --remove)
 lib/                    lib.sh, recolor.py (any palette → any palette), preview.py (the TUI's previews)
 config/                 apps.conf (pinned apps), shortcuts.conf (Plasma keys + cheat-sheet)
 ```

@@ -47,9 +47,11 @@ case $mode in
              | "hl.monitor({ output = \"\(.name)\", mode = \"\($m)\", position = \"\(.x)x\(.y)\", scale = \(.scale), transform = \(.transform) })"')$'\n'
     fi
     while read -r out; do
-      # transform 0, so a portrait screen shows the landscape picture upright, not sideways
+      # each screen keeps its own rotation: a physically turned screen needs it to show the
+      # picture upright (letterboxed when portrait mirrors landscape or the other way round)
       m=$(best "$out"); m=${m:-preferred}
-      lua+="hl.monitor({ output = \"$out\", mode = \"$m\", position = \"auto\", scale = 1, transform = 0, mirror = \"$src\" })
+      t=$(mons | jq -r --arg o "$out" '.[] | select(.name == $o) | .transform')
+      lua+="hl.monitor({ output = \"$out\", mode = \"$m\", position = \"auto\", scale = 1, transform = $t, mirror = \"$src\" })
 "
     done < <(mons | jq -r --arg s "$src" '.[] | select(.name != $s) | .name')
     [[ $lua == *mirror* ]] || { notify "[!] duplicate" "only one screen connected"; exit 0; }

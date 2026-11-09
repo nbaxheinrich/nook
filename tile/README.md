@@ -95,7 +95,7 @@ It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app as
   - they keep rendering when the other screen has focus
 - **NVIDIA:** `LIBVA_DRIVER_NAME`, `__GLX_VENDOR_LIBRARY_NAME` and `NVD_BACKEND` are set when the proprietary driver is loaded.
 - **`SUPER G` game mode** (`bin/nook-gamemode`) turns animations, blur, shadows, dimming and gaps off. Press it again to reload the normal look.
-- **`SUPER ⇧ P` screens** (`bin/nook-display`) toggles extend ⇄ duplicate: every other screen mirrors the focused one, upright, and all screens switch to the biggest resolution they share (a small beamer gets a native, readable picture; `nook-display duplicate 1280x720` picks one yourself). Extend is a config reload, so the layout stays in `machine.lua`. `nook-display only` keeps just the focused screen.
+- **`SUPER ⇧ P` screens** (`bin/nook-display`) toggles extend ⇄ duplicate: every other screen mirrors the focused one, upright in its own rotation (letterboxed between portrait and landscape), and all screens switch to the biggest resolution they share (a small beamer gets a native, readable picture; `nook-display duplicate 1280x720` picks one yourself). Extend is a config reload, so the layout stays in `machine.lua`. `nook-display only` keeps just the focused screen.
 - **Steam launch options** worth using: `gamemoderun %command%` (CPU governor and priority), `mangohud %command%` (FPS overlay), or `gamescope -f -W 2560 -H 1440 -r 144 -- %command%` for games that misbehave with XWayland.
 
 ## Keys

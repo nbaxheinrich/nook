@@ -240,6 +240,19 @@ if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; the
 fi
 link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
 link "$TILE/bin/nook-session-look"   "$HOME/.local/bin/nook-session-look"
+link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
+link "$TILE/bin/nook-display"        "$HOME/.local/bin/nook-display"
+# KDE's xwaylandvideobridge (autostarted for X11 apps' screen sharing) fights Hyprland's portal:
+# it opens shares by itself and loops on formats. Keep it to Plasma.
+if [ -f /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop ]; then
+  mkdir -p "$CFG/autostart"
+  grep -v '^NotShowIn=' /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop > "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
+  echo 'NotShowIn=Hyprland;' >> "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
+fi
+# Electron apps from Flatpak (Discord): native Wayland, so screen sharing goes through the portal
+for app in com.discordapp.Discord dev.vencord.Vesktop; do
+  flatpak info "$app" >/dev/null 2>&1 && flatpak override --user --env=ELECTRON_OZONE_PLATFORM_HINT=auto "$app"
+done
 # Plasma puts its own icon theme back when it starts (KDE apps read it from the shared kdeglobals)
 mkdir -p "$CFG/autostart"
 cat > "$CFG/autostart/nook-session-look.desktop" <<DESKTOP

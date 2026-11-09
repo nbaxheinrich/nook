@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# nook-tile screenshots: save to ~/Pictures/Screenshots, copy to the clipboard, notify with a preview.
+#   nook-shot area     pick a region (slurp)            SUPER ⇧ S · PRINT
+#   nook-shot window   the focused window               SUPER ⇧ W
+#   nook-shot screen   the screen under the cursor      SUPER ⇧ A · SUPER ⇧ PRINT
+set -uo pipefail
+mode=${1:-area}
+dir=$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Pictures")/Screenshots
+mkdir -p "$dir"
+file="$dir/Screenshot_$(date +%Y%m%d_%H%M%S).png"
+
+case "$mode" in
+  area)   geo=$(slurp -d -b '#0d0d0d88' -c '#45c8e6ff' -s '#45c8e622' -w 2) || exit 0
+          grim -g "$geo" "$file" ;;
+  window) geo=$(hyprctl activewindow -j | python3 -I -c 'import json,sys;w=json.load(sys.stdin);print(f"{w[\"at\"][0]},{w[\"at\"][1]} {w[\"size\"][0]}x{w[\"size\"][1]}")') || exit 1
+          grim -g "$geo" "$file" ;;
+  screen) out=$(hyprctl monitors -j | python3 -I -c 'import json,sys;print([m["name"] for m in json.load(sys.stdin) if m["focused"]][0])')
+          grim -o "$out" "$file" ;;
+  *) echo "usage: nook-shot area|window|screen" >&2; exit 2 ;;
+esac || { notify-send -a nook -u critical "[!!] screenshot failed" "grim could not capture ($mode)"; exit 1; }
+
+wl-copy --type image/png < "$file"
+notify-send -a nook -i "$file" "[OK] screenshot" "${file/#$HOME/~} · in the clipboard" 2>/dev/null || true

@@ -78,6 +78,12 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.
 - `Theme.qml` holds the tokens and `Stats.qml` the shared `/proc` numbers.
 
+## Screen sharing
+
+It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app asks). Two things keep it working:
+- KDE's `xwaylandvideobridge` is kept to Plasma (`NotShowIn=Hyprland`). Under Hyprland it opened shares by itself and looped on formats.
+- Electron apps from Flatpak (Discord, Vesktop) run natively on Wayland (`ELECTRON_OZONE_PLATFORM_HINT=auto`), so they share through the portal instead of needing the bridge.
+
 ## Gaming
 
 - **Global:** tearing allowed, VRR for fullscreen windows (`misc.vrr = 2`), direct scanout for fullscreen games.
@@ -89,6 +95,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - they keep rendering when the other screen has focus
 - **NVIDIA:** `LIBVA_DRIVER_NAME`, `__GLX_VENDOR_LIBRARY_NAME` and `NVD_BACKEND` are set when the proprietary driver is loaded.
 - **`SUPER G` game mode** (`bin/nook-gamemode`) turns animations, blur, shadows, dimming and gaps off. Press it again to reload the normal look.
+- **`SUPER ⇧ P` screens** (`bin/nook-display`) toggles extend ⇄ duplicate: every other screen mirrors the focused one, upright in its own rotation (letterboxed between portrait and landscape), and all screens switch to the biggest resolution they share (a small beamer gets a native, readable picture; `nook-display duplicate 1280x720` picks one yourself). Extend is a config reload, so the layout stays in `machine.lua`. `nook-display only` keeps just the focused screen.
 - **Steam launch options** worth using: `gamemoderun %command%` (CPU governor and priority), `mangohud %command%` (FPS overlay), or `gamescope -f -W 2560 -H 1440 -r 144 -- %command%` for games that misbehave with XWayland.
 
 ## Keys
@@ -97,8 +104,8 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 | --- | --- |
 | apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
-| workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send · `SUPER S` scratchpad · `SUPER` + scroll |
-| system | `SUPER G` game mode · `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `PRINT` area → clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
+| workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad · `SUPER` + scroll |
+| system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), saved to ~/Pictures/Screenshots + clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 
 ## Known gaps
 

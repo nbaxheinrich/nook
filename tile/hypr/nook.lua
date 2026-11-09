@@ -24,9 +24,14 @@ local menu     = "qs -c nook ipc call launcher toggle"
 -------------------------------------------------------------------------------
 hl.on("hyprland.start", function()
     -- environment into systemd/dbus, then graphical-session.target (xdg-desktop-portal needs it),
-    -- then the shell, so Quickshell finds the portal already running
+    -- then the shell, so Quickshell finds the portal already running.
+    -- pam_kwallet_init hands the session to the ksecretd that SDDM started with the login password:
+    -- it unlocks the wallet and serves org.freedesktop.secrets. Plasma runs it itself, but its
+    -- autostart entry has X-systemd-skip, so here nobody would, and Nextcloud (started by the
+    -- session target) found no keychain and asked for a fresh login every boot.
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP "
         .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE "
+        .. "&& { [ -x /usr/libexec/pam_kwallet_init ] && /usr/libexec/pam_kwallet_init; true; } "
         .. "&& systemctl --user start hyprland-session.target hyprpolkitagent "
         .. "; nook-session-look hyprland; qs -c nook")  -- Ramen icons for KDE apps, then the shell
     hl.exec_cmd("mako")                                 -- notifications
@@ -127,6 +132,19 @@ end
 hl.window_rule({ match = { class = "^(org.kde.polkit-kde-authentication-agent-1|hyprpolkitagent|pavucontrol|org.pulseaudio.pavucontrol|nm-connection-editor|blueman-manager)$" }, float = true })
 hl.window_rule({ match = { title = "^(Open File|Save File|Open Folder|Choose Files?).*$" }, float = true })
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })
+-- xwaylandvideobridge (autostarted for Plasma, shares screens to X11 apps) maps a real window;
+-- keep it working but invisible instead of tiling it onto the workspace
+hl.window_rule({
+    name             = "xwaylandvideobridge",
+    match            = { class = "^xwaylandvideobridge$" },
+    float            = true,
+    opacity          = "0.0 override",
+    no_anim          = true,
+    no_initial_focus = true,
+    no_focus         = true,
+    no_blur          = true,
+    max_size         = "1 1",
+})
 
 -------------------------------------------------------------------------------
 -- gaming: tearing for games, VRR in fullscreen, direct scanout, no lock mid-game

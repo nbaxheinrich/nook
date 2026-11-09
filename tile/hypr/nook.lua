@@ -206,6 +206,7 @@ bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet toggle"),      
 bind(MS("R"),    hl.dsp.exec_cmd("pkill -x qs; qs -c nook"),                       "system: reload shell")
 bind(MS("E"),    hl.dsp.exit(),                                                    "system: exit hyprland")
 bind(M("G"),     hl.dsp.exec_cmd("nook-gamemode"),                                 "system: game mode on / off")
+bind(MS("P"),    hl.dsp.exec_cmd("nook-display"),                                  "system: screens extend ⇄ duplicate")
 
 -- media keys (no description: not on the cheatsheet)
 local L = { locked = true, repeating = true }

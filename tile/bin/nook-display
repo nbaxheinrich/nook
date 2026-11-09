@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# nook-tile display switch, like Win+P / Plasma's Meta+P (here SUPER ⇧ P):
+#   nook-display            toggle: extend ⇄ duplicate
+#   nook-display duplicate  every other screen mirrors the focused one
+#   nook-display extend     back to the layout in ~/.config/hypr/machine.lua
+#   nook-display only       only the focused screen, the others off
+# Extend is just a config reload, so machine.lua stays the single source of the layout.
+set -euo pipefail
+
+notify() { notify-send -a nook -u low "$@" 2>/dev/null || true; }
+mons() { hyprctl monitors all -j; }
+
+mode=${1:-toggle}
+if [ "$mode" = toggle ]; then
+  # mirroring or switched off → extend, otherwise duplicate
+  if mons | jq -e 'any(.[]; .mirrorOf != "none" or .disabled)' >/dev/null; then
+    mode=extend
+  else
+    mode=duplicate
+  fi
+fi
+
+src=$(hyprctl monitors -j | jq -r '(map(select(.focused)) + .)[0].name')
+
+case $mode in
+  extend)
+    hyprctl reload >/dev/null
+    notify "[~] extend" "screens side by side again"
+    ;;
+  duplicate|mirror)
+    w=$(mons | jq -r --arg s "$src" '.[] | select(.name == $s) | .width')
+    h=$(mons | jq -r --arg s "$src" '.[] | select(.name == $s) | .height')
+    lua=""
+    while read -r out; do
+      # the source's resolution at the best refresh the other screen has (no letterbox, no
+      # scaling blur), else its preferred mode; transform 0, so a portrait screen shows the
+      # landscape picture upright instead of sideways
+      m=$(mons | jq -r --arg o "$out" --arg r "${w}x${h}@" '
+            .[] | select(.name == $o) | .availableModes
+            | map(select(startswith($r))) | sort_by(sub(".*@"; "") | sub("Hz"; "") | tonumber) | last
+            // "preferred" | sub("Hz$"; "")')
+      lua+="hl.monitor({ output = \"$out\", mode = \"$m\", position = \"auto\", scale = 1, transform = 0, mirror = \"$src\" })
+"
+    done < <(mons | jq -r --arg s "$src" '.[] | select(.name != $s) | .name')
+    [ -n "$lua" ] || { notify "[!] duplicate" "only one screen connected"; exit 0; }
+    hyprctl eval "$lua" >/dev/null
+    notify "[OK] duplicate" "all screens show $src · SUPER ⇧ P again to extend"
+    ;;
+  only)
+    lua=""
+    while read -r out; do
+      lua+="hl.monitor({ output = \"$out\", disabled = true })
+"
+    done < <(mons | jq -r --arg s "$src" '.[] | select(.name != $s) | .name')
+    [ -n "$lua" ] && hyprctl eval "$lua" >/dev/null
+    notify "[OK] $src only" "the other screens are off · SUPER ⇧ P to extend"
+    ;;
+  *) echo "usage: nook-display [toggle|duplicate|extend|only]" >&2; exit 2 ;;
+esac

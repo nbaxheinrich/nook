@@ -241,6 +241,7 @@ fi
 link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
 link "$TILE/bin/nook-session-look"   "$HOME/.local/bin/nook-session-look"
 link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
+link "$TILE/bin/nook-display"        "$HOME/.local/bin/nook-display"
 # KDE's xwaylandvideobridge (autostarted for X11 apps' screen sharing) fights Hyprland's portal:
 # it opens shares by itself and loops on formats. Keep it to Plasma.
 if [ -f /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop ]; then

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # nook-tile display switch, like Win+P / Plasma's Meta+P (here SUPER ⇧ P):
 #   nook-display            toggle: extend ⇄ duplicate
-#   nook-display duplicate  every other screen mirrors the focused one
+#   nook-display duplicate  every other screen mirrors the focused one, all at the biggest
+#                           resolution they share (so a small beamer gets a native picture)
+#   nook-display duplicate 1280x720   the same at a resolution you pick
 #   nook-display extend     back to the layout in ~/.config/hypr/machine.lua
 #   nook-display only       only the focused screen, the others off
 # Extend is just a config reload, so machine.lua stays the single source of the layout.
@@ -28,23 +30,31 @@ case $mode in
     notify "[~] extend" "screens side by side again"
     ;;
   duplicate|mirror)
-    w=$(mons | jq -r --arg s "$src" '.[] | select(.name == $s) | .width')
-    h=$(mons | jq -r --arg s "$src" '.[] | select(.name == $s) | .height')
+    # one resolution for all screens: the biggest one every screen has (a small beamer gets a
+    # native picture instead of a shrunken 1440p one), or the one given as $2, e.g. 1920x1080.
+    # Extend (a reload) puts the source back to its mode from machine.lua.
+    res=${2:-$(mons | jq -r --arg s "$src" '
+          map(.availableModes | map(sub("@.*"; "")) | unique) as $sets
+          | reduce $sets[1:][] as $x ($sets[0]; [.[] | select(. as $r | $x | index($r))])
+          | sort_by(split("x") | map(tonumber) | .[0] * .[1]) | last // empty')}
+    # best refresh a screen has at $res, empty if it doesn't have it
+    best() { mons | jq -r --arg o "$1" --arg r "$res@" '
+               .[] | select(.name == $o) | .availableModes | map(select(startswith($r)))
+               | sort_by(sub(".*@"; "") | sub("Hz"; "") | tonumber) | last // empty | sub("Hz$"; "")'; }
     lua=""
+    if [ -n "$res" ] && m=$(best "$src") && [ -n "$m" ]; then
+      lua+=$(mons | jq -r --arg s "$src" --arg m "$m" '.[] | select(.name == $s)
+             | "hl.monitor({ output = \"\(.name)\", mode = \"\($m)\", position = \"\(.x)x\(.y)\", scale = \(.scale), transform = \(.transform) })"')$'\n'
+    fi
     while read -r out; do
-      # the source's resolution at the best refresh the other screen has (no letterbox, no
-      # scaling blur), else its preferred mode; transform 0, so a portrait screen shows the
-      # landscape picture upright instead of sideways
-      m=$(mons | jq -r --arg o "$out" --arg r "${w}x${h}@" '
-            .[] | select(.name == $o) | .availableModes
-            | map(select(startswith($r))) | sort_by(sub(".*@"; "") | sub("Hz"; "") | tonumber) | last
-            // "preferred" | sub("Hz$"; "")')
+      # transform 0, so a portrait screen shows the landscape picture upright, not sideways
+      m=$(best "$out"); m=${m:-preferred}
       lua+="hl.monitor({ output = \"$out\", mode = \"$m\", position = \"auto\", scale = 1, transform = 0, mirror = \"$src\" })
 "
     done < <(mons | jq -r --arg s "$src" '.[] | select(.name != $s) | .name')
-    [ -n "$lua" ] || { notify "[!] duplicate" "only one screen connected"; exit 0; }
+    [[ $lua == *mirror* ]] || { notify "[!] duplicate" "only one screen connected"; exit 0; }
     hyprctl eval "$lua" >/dev/null
-    notify "[OK] duplicate" "all screens show $src · SUPER ⇧ P again to extend"
+    notify "[OK] duplicate ${res:-}" "all screens show $src · SUPER ⇧ P again to extend"
     ;;
   only)
     lua=""
@@ -55,5 +65,5 @@ case $mode in
     [ -n "$lua" ] && hyprctl eval "$lua" >/dev/null
     notify "[OK] $src only" "the other screens are off · SUPER ⇧ P to extend"
     ;;
-  *) echo "usage: nook-display [toggle|duplicate|extend|only]" >&2; exit 2 ;;
+  *) echo "usage: nook-display [toggle|duplicate [WxH]|extend|only]" >&2; exit 2 ;;
 esac

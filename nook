@@ -20,7 +20,7 @@ NOOK="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 . "$NOOK/lib/lib.sh"
 VERSION=2
 CONF="$NOOK_STATE/nook.conf"
-SHELL_ALL="zsh omz prompt-nook zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git yazi lazygit tldr direnv dust duf glow"
+SHELL_ALL="zsh omz prompt-nook zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git yazi lazygit tldr direnv dust duf glow opencode"
 palettes() { ls "$NOOK/palettes"/*.json | xargs -n1 basename | sed 's/\.json$//'; }
 
 # ── choices: last run's, or sensible defaults ───────────────────────────────
@@ -146,7 +146,7 @@ pick_palette() {  # VAR TITLE → sets VAR
 pick_shell() {
   local out key sel t
   while true; do
-    out=$(for t in zsh omz prompt-nook prompt-starship prompt-plain zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git yazi lazygit tldr direnv dust duf glow; do
+    out=$(for t in zsh omz prompt-nook prompt-starship prompt-plain zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git yazi lazygit tldr direnv dust duf glow opencode; do
             [[ " $shell " == *" $t "* ]] && m=$(mark 1) || m=$(mark 0)
             printf '%s\t%s %s\n' "$t" "$m" "$t"
           done; printf 'palette\t  palette   %s\n' "$(dim "$shell_palette")"; printf 'done\t\e[38;2;79;216;207m✓ done\e[0m\n')

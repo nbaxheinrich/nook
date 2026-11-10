@@ -143,6 +143,7 @@ SHELL = {
     "dust": ("dust", "du as a tree of bars: what eats the disk", "dust ~ → .cache 12G ████"),
     "duf": ("duf", "df as a table: every disk, how full", "duf → /  71% ███████░░░"),
     "glow": ("glow", "markdown rendered in the terminal; `md FILE`", "md README.md"),
+    "opencode": ("opencode", "coding agent in the terminal, any provider (Anthropic, OpenAI, OpenRouter, Ollama, free models); `oc`", "oc → Build · plan · subagents, in the palette"),
 }
 
 

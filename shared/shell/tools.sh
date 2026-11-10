@@ -6,7 +6,7 @@
 _nook_shell=bash; [ -n "${ZSH_VERSION:-}" ] && _nook_shell=zsh
 _nook_has() { command -v "$1" >/dev/null 2>&1; }
 # chosen in shell.conf (all of them when there's no choice yet)
-_nook_on() { case " ${NOOK_TOOLS-zoxide eza bat delta fd ripgrep fzf yazi lazygit tldr direnv dust duf glow} " in *" $1 "*) return 0 ;; esac; return 1; }
+_nook_on() { case " ${NOOK_TOOLS-zoxide eza bat delta fd ripgrep fzf yazi lazygit tldr direnv dust duf glow opencode} " in *" $1 "*) return 0 ;; esac; return 1; }
 
 # Debian and Ubuntu ship bat as batcat and fd as fdfind
 _nook_bat="" _nook_fd=""
@@ -80,6 +80,9 @@ _nook_on direnv && _nook_has direnv && eval "$(direnv hook "$_nook_shell")"
 
 # glow: `md FILE` reads markdown in the terminal (pager); tldr, dust and duf need nothing here
 _nook_on glow && _nook_has glow && alias md='glow -p'
+
+# opencode: `oc` starts the coding agent in this folder, `oc -c` continues the last session
+_nook_on opencode && _nook_has opencode && alias oc='opencode'
 
 unset _nook_shell _nook_bat _nook_fd
 unset -f _nook_has _nook_on

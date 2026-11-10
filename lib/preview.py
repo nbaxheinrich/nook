@@ -136,6 +136,13 @@ SHELL = {
     "btop": ("btop", "system monitor with the nook theme", "SUPER ⇧ ⏎ in nook-tile"),
     "cava": ("cava", "audio visualiser bars in the palette", ""),
     "git": ("git colours", "status, branch and diff colours; git lg, git st, git last", "git lg → one-line graph"),
+    "yazi": ("yazi", "terminal file manager with previews; `y` opens it and leaves you where you quit", "y → ~/proj, q → cd ~/proj/nook"),
+    "lazygit": ("lazygit", "git in a TUI: stage lines, rebase, cherry-pick; `lg`", "lg → status · branches · log"),
+    "tldr": ("tldr (tealdeer)", "short examples instead of the whole man page", "tldr tar → the five tar lines you need"),
+    "direnv": ("direnv", "a folder's .envrc loads when you cd in, unloads when you leave", "cd proj → venv + API keys loaded"),
+    "dust": ("dust", "du as a tree of bars: what eats the disk", "dust ~ → .cache 12G ████"),
+    "duf": ("duf", "df as a table: every disk, how full", "duf → /  71% ███████░░░"),
+    "glow": ("glow", "markdown rendered in the terminal; `md FILE`", "md README.md"),
 }
 
 

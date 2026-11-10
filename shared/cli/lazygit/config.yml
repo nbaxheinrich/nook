@@ -1,0 +1,24 @@
+# written by ./nook (shared/shell/install.sh): lazygit in the Nook palette.
+# Loaded before your own ~/.config/lazygit/config.yml (LG_CONFIG_FILE in tools.sh), so yours wins.
+gui:
+  border: single
+  showIcons: false
+  theme:
+    activeBorderColor: ["#c4b2f5", bold]
+    inactiveBorderColor: ["#4a3f38"]
+    searchingActiveBorderColor: ["#f9c49a", bold]
+    optionsTextColor: ["#a3cdf5"]
+    selectedLineBgColor: ["#372f2a"]
+    inactiveViewSelectedLineBgColor: ["#2a2420"]
+    cherryPickedCommitFgColor: ["#94dcd6"]
+    cherryPickedCommitBgColor: ["#372f2a"]
+    markedBaseCommitFgColor: ["#a3cdf5"]
+    markedBaseCommitBgColor: ["#372f2a"]
+    unstagedChangesColor: ["#f7a59a"]
+    defaultFgColor: ["#f6ece4"]
+  authorColors:
+    "*": "#e2b5f0"
+  branchColorPatterns:
+    "^main$": "#a6e6bf"
+    "^feat/": "#a3cdf5"
+    "^fix/": "#f9c49a"

@@ -1,12 +1,12 @@
 # Nook command-line tools, for bash and zsh: zoxide behind cd, eza behind ls, bat behind cat,
-# fd for fzf, and every one of them in the palette. A part only kicks in when its tool is chosen
+# fd for fzf, yazi as `y`, lazygit as `lg`, the direnv hook, and every one of them in the palette. A part only kicks in when its tool is chosen
 # (NOOK_TOOLS in ~/.local/share/nook/shell.conf, set by ./nook) AND installed, so anything else
 # leaves the plain command as it was. Sourced by ~/.local/share/nook/zshrc and bashrc.
 
 _nook_shell=bash; [ -n "${ZSH_VERSION:-}" ] && _nook_shell=zsh
 _nook_has() { command -v "$1" >/dev/null 2>&1; }
 # chosen in shell.conf (all of them when there's no choice yet)
-_nook_on() { case " ${NOOK_TOOLS-zoxide eza bat delta fd ripgrep fzf} " in *" $1 "*) return 0 ;; esac; return 1; }
+_nook_on() { case " ${NOOK_TOOLS-zoxide eza bat delta fd ripgrep fzf yazi lazygit tldr direnv dust duf glow} " in *" $1 "*) return 0 ;; esac; return 1; }
 
 # Debian and Ubuntu ship bat as batcat and fd as fdfind
 _nook_bat="" _nook_fd=""
@@ -55,6 +55,31 @@ _nook_on ripgrep && export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
 # zoxide: `cd` learns the directories you use, so `cd proj` jumps to ~/code/proj; `cdi` picks with fzf.
 # Plain paths still work as before.
 _nook_on zoxide && _nook_has zoxide && eval "$(zoxide init "$_nook_shell" --cmd cd)"
+
+# yazi: `y` opens the file manager; quitting it with q leaves you in the folder you ended up in
+# (Q quits and stays where you were)
+if _nook_on yazi && _nook_has yazi; then
+  y() {
+    local tmp cwd; tmp=$(mktemp -t yazi-cwd.XXXXXX)
+    command yazi "$@" --cwd-file="$tmp"
+    cwd=$(command cat -- "$tmp"); command rm -f -- "$tmp"
+    [ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
+  }
+fi
+
+# lazygit: `lg`, in the palette; your own ~/.config/lazygit/config.yml is loaded after nook's, so it wins
+if _nook_on lazygit && _nook_has lazygit && [ -f "$HOME/.local/share/nook/lazygit.yml" ]; then
+  LG_CONFIG_FILE="$HOME/.local/share/nook/lazygit.yml"
+  [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/lazygit/config.yml" ] && LG_CONFIG_FILE+=",${XDG_CONFIG_HOME:-$HOME/.config}/lazygit/config.yml"
+  export LG_CONFIG_FILE
+  alias lg='lazygit'
+fi
+
+# direnv: a folder's .envrc loads when you cd in (after `direnv allow`) and unloads when you leave
+_nook_on direnv && _nook_has direnv && eval "$(direnv hook "$_nook_shell")"
+
+# glow: `md FILE` reads markdown in the terminal (pager); tldr, dust and duf need nothing here
+_nook_on glow && _nook_has glow && alias md='glow -p'
 
 unset _nook_shell _nook_bat _nook_fd
 unset -f _nook_has _nook_on

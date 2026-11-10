@@ -111,7 +111,9 @@ Scope {
             anchors { bottom: true; left: true; right: true }
             margins { bottom: 10; left: Theme.pad; right: Theme.pad }
             implicitHeight: Theme.pill
-            exclusiveZone: Theme.pill + 10
+            // 6 px short of the bar's top edge: with gaps_out 12, windows end 6 px above the bar,
+            // the same as the gap between two windows
+            exclusiveZone: Theme.pill + 10 - 6
             color: "transparent"
 
             // ── overflow: the clock sits in the middle, each side gets half of what's left ──

@@ -26,7 +26,7 @@ hl.on("hyprland.start", function()
     -- environment into systemd/dbus, then graphical-session.target (xdg-desktop-portal needs it),
     -- then the shell, so Quickshell finds the portal already running
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP "
-        .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE "
+        .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE XDG_DATA_DIRS "
         .. "&& systemctl --user start hyprland-session.target hyprpolkitagent "
         .. "; nook-session-look hyprland; qs -c nook")  -- Ramen icons for KDE apps, then the shell
     hl.exec_cmd("mako")                                 -- notifications
@@ -36,6 +36,16 @@ end)
 hl.on("hyprland.shutdown", function()
     hl.exec_cmd("systemctl --user stop hyprland-session.target")
 end)
+
+-- Flatpak apps (browsers too) for the launcher, xdg-settings and gtk-launch: start-hyprland skips
+-- /etc/profile.d/flatpak.sh, so the session would only see /usr/share/applications
+local home = os.getenv("HOME")
+local data_dirs = os.getenv("XDG_DATA_DIRS")
+if data_dirs == nil or data_dirs == "" then data_dirs = "/usr/local/share:/usr/share" end
+for _, dir in ipairs({ "/var/lib/flatpak/exports/share", home .. "/.local/share/flatpak/exports/share" }) do
+    if not (":" .. data_dirs .. ":"):find(":" .. dir .. ":", 1, true) then data_dirs = dir .. ":" .. data_dirs end
+end
+hl.env("XDG_DATA_DIRS", data_dirs)
 
 hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (shared/cursors/pixelcursors.py)
 hl.env("XCURSOR_SIZE", "16")

@@ -106,19 +106,24 @@ Rectangle {
         function onInformationMessage(message) { root.status = "[~] " + message; root.statusColor = root.gold }
     }
 
-    // ── block clock: 3×5 pixels per digit, ██ per pixel (the desktop's TIME // LOCAL) ──
+    // ── block clock: the NOOK banner's shadow-block font (the desktop's TIME // LOCAL) ──
     readonly property var glyphs: ({
-        "0": ["111", "101", "101", "101", "111"], "1": ["010", "110", "010", "010", "111"],
-        "2": ["111", "001", "111", "100", "111"], "3": ["111", "001", "111", "001", "111"],
-        "4": ["101", "101", "111", "001", "001"], "5": ["111", "100", "111", "001", "111"],
-        "6": ["111", "100", "111", "101", "111"], "7": ["111", "001", "010", "010", "010"],
-        "8": ["111", "101", "111", "101", "111"], "9": ["111", "101", "111", "001", "111"],
-        ":": ["0", "1", "0", "1", "0"]
+        "0": [" ██████╗ ", "██╔═████╗", "██║██╔██║", "████╔╝██║", "╚██████╔╝", " ╚═════╝ "],
+        "1": [" ██╗", "███║", "╚██║", " ██║", " ██║", " ╚═╝"],
+        "2": ["██████╗ ", "╚════██╗", " █████╔╝", "██╔═══╝ ", "███████╗", "╚══════╝"],
+        "3": ["██████╗ ", "╚════██╗", " █████╔╝", " ╚═══██╗", "██████╔╝", "╚═════╝ "],
+        "4": ["██╗  ██╗", "██║  ██║", "███████║", "╚════██║", "     ██║", "     ╚═╝"],
+        "5": ["███████╗", "██╔════╝", "███████╗", "╚════██║", "███████║", "╚══════╝"],
+        "6": [" ██████╗ ", "██╔════╝ ", "███████╗ ", "██╔═══██╗", "╚██████╔╝", " ╚═════╝ "],
+        "7": ["███████╗", "╚════██║", "    ██╔╝", "   ██╔╝ ", "   ██║  ", "   ╚═╝  "],
+        "8": [" █████╗ ", "██╔══██╗", "╚█████╔╝", "██╔══██╗", "╚█████╔╝", " ╚════╝ "],
+        "9": [" █████╗ ", "██╔══██╗", "╚██████║", " ╚═══██║", " █████╔╝", " ╚════╝ "],
+        ":": ["   ", "██╗", "╚═╝", "██╗", "╚═╝", "   "]
     })
     function blockRow(text, r) {
-        return text.split("").map(ch => glyphs[ch][r].replace(/1/g, "██").replace(/0/g, "  ")).join(" ")
+        return text.split("").map(ch => glyphs[ch][r]).join(" ")
     }
-    readonly property var clockHues: [rose, red, gold, aqua, cyan]
+    readonly property var clockHues: [rose, red, orange, gold, aqua, cyan]
 
     // ── NOOK banner: 5-column bands, two columns further per row (fire → ice, diagonal) ──
     readonly property var banner: [
@@ -196,7 +201,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             readonly property real px: Math.max(10, 22 * root.s)
             Repeater {
-                model: 5
+                model: 6
                 Text {
                     required property int index
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -204,7 +209,7 @@ Rectangle {
                     color: root.clockHues[index]
                     font { family: root.mono; pixelSize: parent.px }
                     lineHeightMode: Text.FixedHeight
-                    lineHeight: parent.px * 0.95
+                    lineHeight: parent.px * 1.1
                 }
             }
             Text {

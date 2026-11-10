@@ -32,7 +32,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 | `hypr/nook.lua` | `~/.config/hypr/nook.lua` (link) | Look, rules, autostart and **every keybind**. Hyprland 0.57 is configured in Lua. |
 | `hypr/machine.lua` | `~/.config/hypr/machine.lua` (copied once, yours) | Monitors (DP-2 landscape, DP-1 portrait on the right), EurKEY layout. |
 | `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | Just `require("machine")` and `require("nook")`. |
-| `hypr/hyprlock.conf`, `hypridle.conf` | `~/.config/hypr/` (links) | VT323 lock screen in orange, cyan input. Locks after 10 min. |
+| `hypr/hyprlock.conf`, `hypridle.conf` | `~/.config/hypr/` (links) | Lock screen with the `NOOK` banner's shadow-block clock (`bin/nook-lockclock`, one fire → ice hue per row), cyan input. Locks after 10 min. |
 | `quickshell/nook/` | `~/.config/quickshell/nook` (link) | The shell, started with `qs -c nook`. |
 | `kitty/nook.conf` | `~/.config/kitty/` (link + `include`) | The palette, 90% opacity; `NOOK=1` and the axolotl fastfetch for the shell part. |
 | `ssh/nook.conf` | `~/.ssh/nook.conf` (copy, mode 600, + `Include` at the end of `~/.ssh/config`) | `TERM=xterm-256color` for ssh, so `nano` & co. work on machines without kitty's terminfo (`Error opening terminal: xterm-kitty`). A `Host` block of your own above it wins. |
@@ -73,7 +73,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
     `"group: label"` shows up there, so `nook.lua` is the only list of keys.
   - Group colours: APPS amber, WINDOWS cyan, WORKSPACES blue, SYSTEM red.
 - **Widgets** (`Widgets.qml`), top right:
-  - `TIME // LOCAL` with block digits, one hue per row.
+  - `TIME // LOCAL` in the `NOOK` banner's shadow-block font (`███╗`), one fire → ice hue per row.
   - `SYS // LIVE` with cpu / ram / disk `[████░░]` bars, net as a blue sparkline, and the CPU temperature.
   - `NOW // PLAYING` (MPRIS) with `[◀◀] [ ▮▮ ] [▶▶]`.
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.

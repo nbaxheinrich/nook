@@ -1,5 +1,5 @@
 // Desktop widgets on the bottom layer, stacked top-right on every screen:
-//   TIME // LOCAL (block digits, one hue per row) · SYS // LIVE (bars + net sparkline) · NOW // PLAYING
+//   TIME // LOCAL (NOOK shadow-block digits, one hue per row) · SYS // LIVE (bars + net sparkline) · NOW // PLAYING
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Mpris
@@ -11,23 +11,29 @@ Scope {
     id: root
     SystemClock { id: clock; precision: SystemClock.Minutes }
 
-    // 3×5 block font, ██ per pixel
+    // 6-row shadow-block font, same style as the NOOK wallpaper banner
     readonly property var glyphs: ({
-        "0": ["111", "101", "101", "101", "111"], "1": ["010", "110", "010", "010", "111"],
-        "2": ["111", "001", "111", "100", "111"], "3": ["111", "001", "111", "001", "111"],
-        "4": ["101", "101", "111", "001", "001"], "5": ["111", "100", "111", "001", "111"],
-        "6": ["111", "100", "111", "101", "111"], "7": ["111", "001", "010", "010", "010"],
-        "8": ["111", "101", "111", "101", "111"], "9": ["111", "101", "111", "001", "111"],
-        ":": ["0", "1", "0", "1", "0"]
+        "0": [" ██████╗ ", "██╔═████╗", "██║██╔██║", "████╔╝██║", "╚██████╔╝", " ╚═════╝ "],
+        "1": [" ██╗", "███║", "╚██║", " ██║", " ██║", " ╚═╝"],
+        "2": ["██████╗ ", "╚════██╗", " █████╔╝", "██╔═══╝ ", "███████╗", "╚══════╝"],
+        "3": ["██████╗ ", "╚════██╗", " █████╔╝", " ╚═══██╗", "██████╔╝", "╚═════╝ "],
+        "4": ["██╗  ██╗", "██║  ██║", "███████║", "╚════██║", "     ██║", "     ╚═╝"],
+        "5": ["███████╗", "██╔════╝", "███████╗", "╚════██║", "███████║", "╚══════╝"],
+        "6": [" ██████╗ ", "██╔════╝ ", "███████╗ ", "██╔═══██╗", "╚██████╔╝", " ╚═════╝ "],
+        "7": ["███████╗", "╚════██║", "    ██╔╝", "   ██╔╝ ", "   ██║  ", "   ╚═╝  "],
+        "8": [" █████╗ ", "██╔══██╗", "╚█████╔╝", "██╔══██╗", "╚█████╔╝", " ╚════╝ "],
+        "9": [" █████╗ ", "██╔══██╗", "╚██████║", " ╚═══██║", " █████╔╝", " ╚════╝ "],
+        ":": ["   ", "██╗", "╚═╝", "██╗", "╚═╝", "   "]
     })
     function blockRows(s) {
-        const rows = ["", "", "", "", ""];
+        const rows = ["", "", "", "", "", ""];
         for (const ch of s)
-            for (let r = 0; r < 5; r++)
-                rows[r] += root.glyphs[ch][r].replace(/1/g, "██").replace(/0/g, "  ") + " ";
+            for (let r = 0; r < 6; r++)
+                rows[r] += root.glyphs[ch][r] + " ";
         return rows;
     }
-    readonly property var clockHues: [Theme.rose, Theme.red, Theme.gold, Theme.aqua, Theme.cyan]
+    // fire → ice, one hue per row (matches the wallpaper banner)
+    readonly property var clockHues: [Theme.rose, Theme.red, Theme.orange, Theme.gold, Theme.aqua, Theme.cyan]
 
     readonly property var player: Mpris.players.values.find(p => p.isPlaying) ?? Mpris.players.values[0] ?? null
 
@@ -108,8 +114,8 @@ Scope {
                                 text: modelData
                                 color: root.clockHues[index]
                                 font.family: Theme.font
-                                font.pixelSize: 15
-                                lineHeight: 0.9
+                                font.pixelSize: 13
+                                lineHeight: 1.0
                             }
                         }
                         layer.enabled: true

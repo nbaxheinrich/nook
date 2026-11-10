@@ -1,0 +1,24 @@
+# written by ./nook (shared/shell/install.sh): tldr pages in the terminal's (Nook) colours
+[display]
+compact = false
+use_pager = false
+
+[updates]
+auto_update = true
+
+[style.description]
+foreground = "white"
+
+[style.command_name]
+foreground = "magenta"
+bold = true
+
+[style.example_text]
+foreground = "green"
+
+[style.example_code]
+foreground = "cyan"
+
+[style.example_variable]
+foreground = "yellow"
+italic = true

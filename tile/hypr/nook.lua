@@ -151,6 +151,56 @@ hl.window_rule({
 hl.window_rule({ match = { class = "^steam$", title = "^(Friends List|Steam Settings|Properties.*|.* - Chat|Screenshot Manager)$" }, float = true })
 
 -------------------------------------------------------------------------------
+-- workspaces: 1–9, and every screen has its own home workspace
+-------------------------------------------------------------------------------
+-- Screens count left to right from 0, and screen s owns workspace s+1: the leftmost 1, the next 2,
+-- then 3, whatever screens are plugged in. The rest stay free and open on the focused screen.
+local function screens()
+    local ms = {}
+    for _, m in ipairs(hl.get_monitors()) do
+        if not m.is_mirror then table.insert(ms, m) end
+    end
+    table.sort(ms, function(a, b)
+        if a.x ~= b.x then return a.x < b.x end
+        return a.y < b.y
+    end)
+    return ms
+end
+
+local ws_rules = {}
+local function pin_workspaces()
+    for _, r in ipairs(ws_rules) do r:set_enabled(false) end
+    ws_rules = {}
+    local active = hl.get_active_workspace()
+    local owner = {}
+    for s, m in ipairs(screens()) do
+        if s > 9 then break end
+        owner[s] = m.name
+        table.insert(ws_rules, hl.workspace_rule({ workspace = tostring(s), monitor = m.name, default = true }))
+    end
+    -- a home workspace that exists elsewhere goes back to its screen, so re-docking restores it
+    for _, w in ipairs(hl.get_workspaces()) do
+        local to = w.id and owner[w.id]
+        if to and not w.special and w.monitor and w.monitor.name ~= to then
+            hl.dispatch(hl.dsp.workspace.move({ workspace = w.id, monitor = to }))
+        end
+    end
+    -- a screen showing an empty workspace outside 1–9 switches to its home one
+    for s, m in ipairs(screens()) do
+        local ws = m.active_workspace
+        if s <= 9 and ws and ws.id and (ws.id < 1 or ws.id > 9) and ws.windows == 0 then
+            hl.dispatch(hl.dsp.focus({ workspace = s }))
+        end
+    end
+    if active and active.id then hl.dispatch(hl.dsp.focus({ workspace = active.id })) end
+end
+
+pin_workspaces()
+for _, ev in ipairs({ "hyprland.start", "monitor.added", "monitor.removed", "monitor.layout_changed" }) do
+    hl.on(ev, pin_workspaces)
+end
+
+-------------------------------------------------------------------------------
 -- keybinds  (description = "group: label" → cheatsheet)
 -------------------------------------------------------------------------------
 local function bind(keys, dsp, desc, opts)
@@ -184,9 +234,9 @@ bind(M("mouse:272"), hl.dsp.window.drag(),   "windows: drag = move",   { mouse =
 bind(M("mouse:273"), hl.dsp.window.resize(), "windows: drag = resize", { mouse = true })
 
 -- workspaces
-for i = 1, 9 do
-    bind(M(tostring(i)),  hl.dsp.focus({ workspace = i }),       "workspaces: switch to " .. i)
-    bind(MS(tostring(i)), hl.dsp.window.move({ workspace = i }), "workspaces: send window to " .. i)
+for n = 1, 9 do
+    bind(M(tostring(n)),  hl.dsp.focus({ workspace = n }),       "workspaces: switch to " .. n)
+    bind(MS(tostring(n)), hl.dsp.window.move({ workspace = n }), "workspaces: send window here, also off a workspace the bar doesn't show, to " .. n)
 end
 bind(M("S"),          hl.dsp.workspace.toggle_special("scratch"),         "workspaces: scratchpad")
 bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratch" }), "workspaces: to scratchpad")

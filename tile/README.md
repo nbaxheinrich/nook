@@ -30,7 +30,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 | file | goes to | what |
 | --- | --- | --- |
 | `hypr/nook.lua` | `~/.config/hypr/nook.lua` (link) | Look, rules, autostart and **every keybind**. Hyprland 0.57 is configured in Lua. |
-| `hypr/machine.lua` | `~/.config/hypr/machine.lua` (copied once, yours) | Monitors (DP-2 landscape, DP-1 portrait on the right), EurKEY layout, workspaces 1–5 / 6–9 per screen. |
+| `hypr/machine.lua` | `~/.config/hypr/machine.lua` (copied once, yours) | Monitors (DP-2 landscape, DP-1 portrait on the right), EurKEY layout. |
 | `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | Just `require("machine")` and `require("nook")`. |
 | `hypr/hyprlock.conf`, `hypridle.conf` | `~/.config/hypr/` (links) | VT323 lock screen in orange, cyan input. Locks after 10 min. |
 | `quickshell/nook/` | `~/.config/quickshell/nook` (link) | The shell, started with `qs -c nook`. |
@@ -104,7 +104,7 @@ It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app as
 | --- | --- |
 | apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
-| workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad · `SUPER` + scroll |
+| workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send (also off a workspace the bar doesn't show) · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad · `SUPER` + scroll. Every screen has a home workspace, counted from the left: 1, 2, 3 …; the rest open on the focused screen |
 | system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), saved to ~/Pictures/Screenshots + clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 
 ## Known gaps

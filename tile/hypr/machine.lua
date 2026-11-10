@@ -21,7 +21,4 @@ hl.config({
     },
 })
 
--- workspaces 1–5 on the main screen, 6–9 on the portrait one
-for i = 1, 9 do
-    hl.workspace_rule({ workspace = tostring(i), monitor = i <= 5 and "DP-2" or "DP-1", default = (i == 1 or i == 6) })
-end
+-- workspaces: each screen gets its home workspace in nook.lua, so none are pinned here

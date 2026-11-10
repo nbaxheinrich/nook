@@ -238,6 +238,13 @@ grep -q '^include nook.conf' "$CFG/kitty/kitty.conf" || printf '\ninclude nook.c
 if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; then
   printf 'shell %s\n' "$zsh_bin" >> "$CFG/kitty/kitty.conf"
 fi
+# ssh from kitty: a TERM remote machines know. Copied, not linked: ssh refuses config files
+# others can write to, and the checkout is group-writable. `Match all` ends any Host block the
+# Include would otherwise fall into, and keeping it last lets the user's own blocks win.
+install -Dm600 "$TILE/ssh/nook.conf" "$HOME/.ssh/nook.conf"
+chmod 700 "$HOME/.ssh"
+touch "$HOME/.ssh/config" && chmod 600 "$HOME/.ssh/config"
+grep -q '^Include nook.conf' "$HOME/.ssh/config" || printf '\nMatch all\nInclude nook.conf\n' >> "$HOME/.ssh/config"
 link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
 link "$TILE/bin/nook-session-look"   "$HOME/.local/bin/nook-session-look"
 link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
@@ -269,7 +276,7 @@ link "$TSRC/mako/config"            "$CFG/mako/config"
 # graphical-session.target for the portal (Hyprland without uwsm does not start it)
 link "$TSRC/systemd/hyprland-session.target" "$CFG/systemd/user/hyprland-session.target"
 systemctl --user daemon-reload 2>/dev/null || true
-ok "kitty, mako ($palette), hyprland-session.target (the shell and prompt: ./nook → shell)"
+ok "kitty (+ ssh TERM), mako ($palette), hyprland-session.target (the shell and prompt: ./nook → shell)"
 
 [ -d "${BACKUP_DIR}" ] && ok "replaced files backed up to ${BACKUP_DIR/#$HOME/~}"
 

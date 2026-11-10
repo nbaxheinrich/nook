@@ -35,6 +35,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 | `hypr/hyprlock.conf`, `hypridle.conf` | `~/.config/hypr/` (links) | VT323 lock screen in orange, cyan input. Locks after 10 min. |
 | `quickshell/nook/` | `~/.config/quickshell/nook` (link) | The shell, started with `qs -c nook`. |
 | `kitty/nook.conf` | `~/.config/kitty/` (link + `include`) | The palette, 90% opacity; `NOOK=1` and the axolotl fastfetch for the shell part. |
+| `ssh/nook.conf` | `~/.ssh/nook.conf` (copy, mode 600, + `Include` at the end of `~/.ssh/config`) | `TERM=xterm-256color` for ssh, so `nano` & co. work on machines without kitty's terminfo (`Error opening terminal: xterm-kitty`). A `Host` block of your own above it wins. |
 | `mako/config` | `~/.config/mako/` (link) | Notifications top-right: `[i]` / `[~]` / `[!!]`, critical ones in red. |
 | `../shared/cursors/pixelcursors.py` | `~/.local/share/icons/Nook-Pixel` (generated) | Old-school pixel cursors (Win95 / Mac classic): white with a black outline, hard-edged, orange sand in the hourglass, red no-entry sign. |
 | `systemd/hyprland-session.target` | `~/.config/systemd/user/` (link) | Starts `graphical-session.target` so xdg-desktop-portal runs (screen sharing, file dialogs). |

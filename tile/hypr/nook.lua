@@ -52,7 +52,17 @@ hl.env("XCURSOR_SIZE", "16")
 hl.env("HYPRCURSOR_SIZE", "16")
 -- Qt apps: qt6ct (the KDE-aware build) with the NookRamen colour scheme, Breeze style, Nook icons.
 -- Only this session reads ~/.config/qt6ct, so Plasma keeps its pastel Nook scheme.
-hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+-- Plain qt6ct (Ubuntu) only hands over a QPalette, which Kirigami apps (Discover, System Settings)
+-- ignore, and Qt5 apps can't load it at all: there KDE's own platform theme (Qt5 and Qt6) does
+-- the job, reading colours and icons from kdeglobals.
+local function qt6ct_kde_aware()
+    local probe = io.popen([[ldd "$(command -v qt6ct)" 2>/dev/null | grep -c KF6ColorScheme]])
+    if not probe then return true end
+    local hits = tonumber(probe:read("*l") or "0") or 0
+    probe:close()
+    return hits > 0
+end
+hl.env("QT_QPA_PLATFORMTHEME", qt6ct_kde_aware() and "qt6ct" or "kde")
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
 
 -- NVIDIA (proprietary driver): VA-API, GLX vendor and Electron on Wayland

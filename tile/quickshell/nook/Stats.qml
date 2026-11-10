@@ -12,6 +12,13 @@ Singleton {
     property int temp: 0
     property int gpu: 0
     property int gpuTemp: 0
+    property int vram: 0              // % used
+    property int vramUsed: 0          // MiB
+    property int vramTotal: 0
+    property int gpuWatt: 0
+    property int gpuFan: 0
+    property string gpuName: ""
+    property var gpuHist: []
     property var cpuHist: []
     property var netHist: []          // KiB/s down, last 24 samples
     property real rx: 0               // bytes/s
@@ -46,11 +53,25 @@ Singleton {
             "df -P / | awk 'NR==2{print \"disk\",$5}'; " +
             "awk -F'[: ]+' 'NR>2 && $2!=\"lo\"{r+=$3;t+=$11}END{print \"net\",r,t}' /proc/net/dev; " +
             "for z in /sys/class/hwmon/hwmon*; do n=$(cat $z/name 2>/dev/null); case $n in k10temp|coretemp|zenpower) echo temp $(cat $z/temp1_input); break;; esac; done; " +
-            "command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits | head -1 | tr -d ',' | sed 's/^/gpu /'"]
+            "command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total,power.draw,fan.speed,name --format=csv,noheader,nounits | head -1 | sed 's/, */|/g; s/^/gpu|/'"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const now = Date.now();
                 for (const l of this.text.trim().split("\n")) {
+                    if (l.startsWith("gpu|")) {
+                        // gpu|util|temp|memUsed|memTotal|watts|fan|name  ("[N/A]" where a card has none)
+                        const g = l.trim().split("|");
+                        root.gpu = parseInt(g[1]) || 0;
+                        root.gpuTemp = parseInt(g[2]) || 0;
+                        root.vramUsed = parseInt(g[3]) || 0;
+                        root.vramTotal = parseInt(g[4]) || 0;
+                        root.vram = root.vramTotal > 0 ? Math.round(root.vramUsed * 100 / root.vramTotal) : 0;
+                        root.gpuWatt = Math.round(parseFloat(g[5]) || 0);
+                        root.gpuFan = parseInt(g[6]) || 0;
+                        root.gpuName = (g[7] || "").replace(/^NVIDIA (GeForce )?/, "").toLowerCase();
+                        root.gpuHist = root.gpuHist.concat([root.gpu]).slice(-24);
+                        continue;
+                    }
                     const f = l.trim().split(/\s+/);
                     if (f[0] === "cpu") {
                         const v = f.slice(1).map(Number);
@@ -74,9 +95,6 @@ Singleton {
                             root.netHist = root.netHist.concat([root.rx / 1024]).slice(-24);
                         }
                         root._prevNet = { r, t, at: now };
-                    } else if (f[0] === "gpu") {
-                        root.gpu = parseInt(f[1]) || 0;
-                        root.gpuTemp = parseInt(f[2]) || 0;
                     } else if (f[0] === "temp") {
                         root.temp = Math.round(Number(f[1]) / 1000);
                     }

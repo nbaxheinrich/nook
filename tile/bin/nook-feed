@@ -1,0 +1,242 @@
+#!/usr/bin/python3 -I
+"""nook-feed — data for the nook desktop widgets, printed as one JSON object.
+
+  nook-feed weather    WX // OUTSIDE   (wttr.in, cached 10 min)
+  nook-feed srv        SRV // HOMELAB  (ping, or TCP connect for host:port)
+  nook-feed cal        CAL // NEXT     (CalDAV, e.g. Nextcloud; password from the keyring)
+  nook-feed cal --setup                store the CalDAV password in the keyring
+
+Settings live in ~/.config/nook/widgets.conf (tile/config/widgets.example.conf is the template).
+Only the Python standard library is used.
+"""
+import base64
+import configparser
+import datetime as dt
+import json
+import os
+import re
+import socket
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+CONF = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "nook" / "widgets.conf"
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "nook"
+UA = {"User-Agent": "nook-feed/1 (curl-compatible)"}
+
+
+def conf():
+    c = configparser.ConfigParser(interpolation=None, inline_comment_prefixes=("#", ";"))
+    c.optionxform = str  # keep host names as written
+    c.read(CONF)
+    return c
+
+
+def out(obj):
+    print(json.dumps(obj, ensure_ascii=False))
+
+
+# ── weather ────────────────────────────────────────────────────────────────────
+# wttr.in weather codes → a one-cell symbol and a hue name the QML maps to Theme colours
+def sky(code):
+    code = int(code)
+    if code == 113: return "☀", "gold"
+    if code in (116,): return "⛅", "cream"
+    if code in (119, 122): return "☁", "muted"
+    if code in (143, 248, 260): return "≋", "muted"
+    if code in (200, 386, 389, 392, 395): return "ϟ", "orange"
+    if code in (179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338,
+                350, 362, 365, 368, 371, 374, 377): return "❄", "cyan"
+    return "☂", "blue"  # the rest is rain/drizzle
+
+
+def weather():
+    c = conf()
+    loc = c.get("weather", "location", fallback="").strip()
+    lang = c.get("weather", "lang", fallback="en").strip() or "en"
+    CACHE.mkdir(parents=True, exist_ok=True)
+    cache = CACHE / "weather.json"
+    if cache.exists() and time.time() - cache.stat().st_mtime < 600:
+        print(cache.read_text())
+        return
+    url = "https://wttr.in/" + urllib.parse.quote(loc) + "?format=j1&lang=" + urllib.parse.quote(lang)
+    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=10) as r:
+        j = json.load(r)
+    cur = j["current_condition"][0]
+    sym, hue = sky(cur["weatherCode"])
+    desc = (cur.get("lang_" + lang) or cur["weatherDesc"])[0]["value"]
+    area = j.get("nearest_area", [{}])[0]
+    place = loc or (area.get("areaName") or [{"value": ""}])[0]["value"]
+    # the next five 3-hour slots from now, across today and tomorrow
+    now_h = dt.datetime.now().hour
+    slots = []
+    for d, day in enumerate(j["weather"][:2]):
+        for h in day["hourly"]:
+            hh = int(h["time"]) // 100
+            if d == 0 and hh <= now_h:
+                continue
+            s, sh = sky(h["weatherCode"])
+            slots.append({"h": f"{hh:02d}", "t": int(h["tempC"]), "sym": s, "hue": sh,
+                          "rain": int(h.get("chanceofrain", 0))})
+    today = j["weather"][0]
+    res = {
+        "ok": True, "place": place.lower(), "temp": int(cur["temp_C"]), "feels": int(cur["FeelsLikeC"]),
+        "desc": desc.strip().lower(), "sym": sym, "hue": hue, "hum": int(cur["humidity"]),
+        "wind": int(cur["windspeedKmph"]), "min": int(today["mintempC"]), "max": int(today["maxtempC"]),
+        "next": slots[:5],
+    }
+    cache.write_text(json.dumps(res, ensure_ascii=False))
+    out(res)
+
+
+# ── servers ────────────────────────────────────────────────────────────────────
+def probe(name, target):
+    t0 = time.monotonic()
+    if re.search(r":\d+$", target) and target.count(":") == 1:  # host:port → TCP connect
+        host, port = target.rsplit(":", 1)
+        try:
+            with socket.create_connection((host, int(port)), timeout=1.5):
+                return {"name": name, "host": target, "up": True, "ms": round((time.monotonic() - t0) * 1000, 1)}
+        except OSError:
+            return {"name": name, "host": target, "up": False, "ms": -1}
+    p = subprocess.run(["ping", "-n", "-c1", "-W1", target], capture_output=True, text=True)
+    m = re.search(r"time=([\d.]+)", p.stdout)
+    up = p.returncode == 0 and m is not None
+    return {"name": name, "host": target, "up": up, "ms": float(m.group(1)) if up else -1}
+
+
+def srv():
+    c = conf()
+    hosts = list(c["srv"].items()) if c.has_section("srv") else []
+    with ThreadPoolExecutor(max_workers=max(1, len(hosts))) as ex:
+        res = list(ex.map(lambda kv: probe(*kv), hosts))
+    out({"ok": True, "hosts": res})
+
+
+# ── calendar (CalDAV) ──────────────────────────────────────────────────────────
+NS = 'xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"'
+
+
+def keyring_pw(user):
+    p = subprocess.run(["secret-tool", "lookup", "service", "nook-caldav", "user", user],
+                       capture_output=True, text=True)
+    return p.stdout.strip() if p.returncode == 0 else ""
+
+
+def dav(method, url, user, pw, body, depth):
+    req = urllib.request.Request(url, data=body.encode(), method=method, headers={
+        **UA, "Depth": depth, "Content-Type": "application/xml; charset=utf-8",
+        "Authorization": "Basic " + base64.b64encode(f"{user}:{pw}".encode()).decode()})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+def unfold(ics):
+    return re.sub(r"\r?\n[ \t]", "", ics)
+
+
+def parse_dt(v):
+    """VALUE from 'DTSTART;TZID=..:20261110T101500' or '…:20261110T091500Z' or a DATE."""
+    params, _, val = v.partition(":")
+    if "VALUE=DATE" in params or re.fullmatch(r"\d{8}", val):
+        d = dt.datetime.strptime(val[:8], "%Y%m%d")
+        return d.replace(tzinfo=dt.datetime.now().astimezone().tzinfo), True
+    if val.endswith("Z"):
+        return dt.datetime.strptime(val, "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc), False
+    d = dt.datetime.strptime(val[:15], "%Y%m%dT%H%M%S")
+    m = re.search(r"TZID=([^;:]+)", params)
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(m.group(1)) if m else None
+    except Exception:
+        tz = None
+    return d.replace(tzinfo=tz or dt.datetime.now().astimezone().tzinfo), False
+
+
+def cal():
+    c = conf()
+    url = c.get("cal", "url", fallback="").strip()
+    user = c.get("cal", "user", fallback="").strip()
+    days = c.getint("cal", "days", fallback=7)
+    want = [w.strip().lower() for w in c.get("cal", "calendars", fallback="").split(",") if w.strip()]
+    if not url or not user:
+        out({"ok": False, "error": "no [cal] in ~/.config/nook/widgets.conf"})
+        return
+    pw = keyring_pw(user)
+    if not pw:
+        out({"ok": False, "error": "no password: nook-feed cal --setup"})
+        return
+    if not url.endswith("/"):
+        url += "/"
+    # 1. the calendars under the home set
+    xml = dav("PROPFIND", url, user, pw,
+              f'<d:propfind {NS}><d:prop><d:displayname/><d:resourcetype/></d:prop></d:propfind>', "1")
+    cals = []
+    for resp in re.findall(r"<d:response>(.*?)</d:response>", xml, re.S):
+        if "<cal:calendar" not in resp and "calendar/>" not in resp:
+            continue
+        href = re.search(r"<d:href>(.*?)</d:href>", resp).group(1)
+        name = re.search(r"<d:displayname>(.*?)</d:displayname>", resp)
+        name = name.group(1) if name else href.rstrip("/").rsplit("/", 1)[-1]
+        if want and name.lower() not in want and href.rstrip("/").rsplit("/", 1)[-1].lower() not in want:
+            continue
+        cals.append((urllib.parse.urljoin(url, href), name))
+    # 2. events in [now, now+days], recurrences expanded by the server
+    now = dt.datetime.now(dt.timezone.utc)
+    a, b = now.strftime("%Y%m%dT%H%M%SZ"), (now + dt.timedelta(days=days)).strftime("%Y%m%dT%H%M%SZ")
+    q = (f'<c:calendar-query {NS}><d:prop><c:calendar-data><c:expand start="{a}" end="{b}"/></c:calendar-data></d:prop>'
+         f'<c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT">'
+         f'<c:time-range start="{a}" end="{b}"/></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>')
+    events = []
+
+    def fetch(cu):
+        href, name = cu
+        try:
+            return name, dav("REPORT", href, user, pw, q, "1")
+        except Exception:
+            return name, ""
+
+    with ThreadPoolExecutor(max_workers=max(1, len(cals))) as ex:
+        for name, body in ex.map(fetch, cals):
+            for data in re.findall(r"BEGIN:VEVENT(.*?)END:VEVENT", unfold(body.replace("&#13;", "")), re.S):
+                f = {}
+                for line in data.strip().splitlines():
+                    k, _, v = line.partition(":")
+                    f.setdefault(k.split(";")[0], line)
+                if "DTSTART" not in f:
+                    continue
+                start, allday = parse_dt(f["DTSTART"])
+                end = parse_dt(f["DTEND"])[0] if "DTEND" in f else start
+                if end < now and not allday:
+                    continue
+                val = lambda k: re.sub(r"\\([,;\\])", r"\1", f[k].split(":", 1)[1]).replace("\\n", " ") if k in f else ""
+                events.append({"start": start.timestamp(), "end": end.timestamp(), "allday": allday,
+                               "title": val("SUMMARY"), "where": val("LOCATION"), "cal": name})
+    events.sort(key=lambda e: e["start"])
+    out({"ok": True, "events": events[:8]})
+
+
+def setup():
+    c = conf()
+    user = c.get("cal", "user", fallback="").strip()
+    if not user:
+        sys.exit(f"put url and user under [cal] in {CONF} first")
+    print(f"CalDAV app password for {user} (Nextcloud: Settings → Security → App passwords):")
+    subprocess.run(["secret-tool", "store", "--label=nook caldav", "service", "nook-caldav", "user", user], check=True)
+    print("stored. test: nook-feed cal")
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    try:
+        if cmd == "weather": weather()
+        elif cmd == "srv": srv()
+        elif cmd == "cal" and "--setup" in sys.argv: setup()
+        elif cmd == "cal": cal()
+        else: sys.exit(__doc__)
+    except Exception as e:  # the widget shows the error instead of going blank
+        out({"ok": False, "error": f"{type(e).__name__}: {e}"[:120]})

@@ -72,10 +72,15 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - It reads the binds from `hyprctl binds -j`. Every bind in `nook.lua` with a description
     `"group: label"` shows up there, so `nook.lua` is the only list of keys.
   - Group colours: APPS amber, WINDOWS cyan, WORKSPACES blue, SYSTEM red.
-- **Widgets** (`Widgets.qml`), top right:
-  - `TIME // LOCAL` in the `NOOK` banner's shadow-block font (`███╗`), one fire → ice hue per row.
-  - `SYS // LIVE` with cpu / ram / disk `[████░░]` bars, net as a blue sparkline, and the CPU temperature.
+- **Widgets** (`Widgets.qml`), top right. Landscape screens get two columns, portrait screens one:
+  - `TIME // LOCAL` in the `NOOK` banner's shadow-block font (`███╗`), one fire → ice hue per row, and the ISO week.
+  - `SYS // LIVE` with cpu / ram / disk `[████░░]` bars, net as a blue sparkline, and the CPU temperature. With an NVIDIA card also gpu and vram bars, a load sparkline, temperature, watts and fan (`nvidia-smi`).
   - `NOW // PLAYING` (MPRIS) with `[◀◀] [ ▮▮ ] [▶▶]`.
+  - `WX // OUTSIDE`: weather now (symbol, temperature, feels-like, min/max, humidity, wind) and the next five 3-hour slots with rain chance, from wttr.in.
+  - `SRV // HOMELAB`: your hosts with an up/down dot, a latency sparkline and the last ping. `host:port` checks a TCP port instead, for hosts that drop pings.
+  - `CAL // NEXT`: the next events from a CalDAV server (Nextcloud works), with a countdown to the first one. The password sits in the keyring, not in a file: `nook-feed cal --setup`.
+  - `PROC // TOP`: the five busiest processes (idle ones by ram). Click a row, then click again within 3 s to end it; the session's own processes can't be ended.
+  - Weather place, hosts and calendar are personal, so they live in `~/.config/nook/widgets.conf` (installed once from `config/widgets.example.conf`). A widget with nothing configured hides. `Feeds.qml` polls `bin/nook-feed`.
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.
 - `Theme.qml` holds the tokens and `Stats.qml` the shared `/proc` numbers.
 

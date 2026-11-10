@@ -1,0 +1,69 @@
+# Nook zsh. Sourced from the top of ~/.zshrc (a line shared/shell/install.sh adds); your own
+# settings stay below it. What runs is chosen in ./nook and written to
+# ~/.local/share/nook/shell.conf:
+#   NOOK_OMZ=1           oh-my-zsh with autosuggestions, syntax highlighting and the nook theme
+#   NOOK_PROMPT=nook     the nook two-line prompt (oh-my-zsh theme) · starship · plain
+#   NOOK_TOOLS="…"       zoxide eza bat delta fd ripgrep fzf (each only when it is installed)
+#   NOOK_FETCH=1         fastfetch once per Nook terminal
+# Colours are the palette's: shared/shell/install.sh recolours this file.
+
+NOOK_OMZ=1 NOOK_PROMPT=nook NOOK_FETCH=1
+[ -f "$HOME/.local/share/nook/shell.conf" ] && . "$HOME/.local/share/nook/shell.conf"
+
+# oh-my-zsh (if your ~/.zshrc loads it itself, this is sourced at its end and skips this part)
+if (( NOOK_OMZ )) && (( ! $+functions[omz] )) && [[ -d ${ZSH:-$HOME/.oh-my-zsh} ]]; then
+  export ZSH="${ZSH:-$HOME/.oh-my-zsh}"
+  [[ $NOOK_PROMPT == nook ]] && ZSH_THEME="nook" || ZSH_THEME=""
+  DISABLE_AUTO_UPDATE=true          # re-run ./nook to update
+  COMPLETION_WAITING_DOTS=true
+  HIST_STAMPS="yyyy-mm-dd"
+  plugins=(git sudo colored-man-pages zsh-autosuggestions zsh-syntax-highlighting)
+  command -v fzf >/dev/null && [[ " ${NOOK_TOOLS-fzf} " == *" fzf "* ]] && plugins+=(fzf)
+
+  # conda: keep "(base)" out of the prompt; the theme shows the env on the right instead
+  export CONDA_CHANGEPS1=false
+
+  source "$ZSH/oh-my-zsh.sh"
+fi
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#7d6d62'
+
+# zsh-syntax-highlighting in the palette
+typeset -gA ZSH_HIGHLIGHT_STYLES
+ZSH_HIGHLIGHT_STYLES[command]='fg=#a6e6bf'
+ZSH_HIGHLIGHT_STYLES[builtin]='fg=#a6e6bf'
+ZSH_HIGHLIGHT_STYLES[function]='fg=#a6e6bf'
+ZSH_HIGHLIGHT_STYLES[alias]='fg=#94dcd6'
+ZSH_HIGHLIGHT_STYLES[precommand]='fg=#e2b5f0,italic'
+ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#f5a8c9'
+ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=#f7a59a'
+ZSH_HIGHLIGHT_STYLES[path]='fg=#a3cdf5,underline'
+ZSH_HIGHLIGHT_STYLES[globbing]='fg=#f9c49a'
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=#f2e29b'
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=#f2e29b'
+ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]='fg=#f2e29b'
+ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#c4b2f5'
+ZSH_HIGHLIGHT_STYLES[redirection]='fg=#c4b2f5'
+ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#bfae9f'
+ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#bfae9f'
+ZSH_HIGHLIGHT_STYLES[comment]='fg=#7d6d62'
+
+# the prompt: starship, or a plain λ prompt when the nook theme has no oh-my-zsh to run in
+if [[ $NOOK_PROMPT == starship ]] && command -v starship >/dev/null; then
+  export STARSHIP_CONFIG=${STARSHIP_CONFIG:-$HOME/.config/starship/nook.toml}
+  RPROMPT=''
+  eval "$(starship init zsh)"
+elif [[ $NOOK_PROMPT == plain ]] || { [[ $NOOK_PROMPT == nook ]] && (( ! $+functions[omz] )); }; then
+  PROMPT='%F{#a6e6bf}λ%f %F{#a3cdf5}%~%f %F{#7d6d62}›%f '
+  RPROMPT=''
+fi
+
+alias keys='nook-keys'
+# zoxide, eza, bat, fd, fzf, ripgrep, delta: the ones chosen in NOOK_TOOLS
+[ -f "$HOME/.local/share/nook/tools.sh" ] && . "$HOME/.local/share/nook/tools.sh"
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# fastfetch once per Nook terminal (Alacritty, kitty and the Nook Konsole profile set NOOK=1)
+if (( NOOK_FETCH )) && [[ -o interactive && -n ${NOOK:-} && -z ${NOOK_FETCHED:-} ]] && command -v fastfetch >/dev/null; then
+  export NOOK_FETCHED=1
+  if [[ -n ${NOOK_FASTFETCH:-} && -f $NOOK_FASTFETCH ]]; then fastfetch -c "$NOOK_FASTFETCH"; else fastfetch; fi
+fi

@@ -6,11 +6,12 @@
 -- Every bind gets a description "group: label". The Quickshell cheatsheet reads
 -- them from `hyprctl binds -j`, so this file is the only list of key bindings.
 
+-- palette colours (written with # so lib/recolor.py can switch the palette)
 local C = {
-    bg000 = "060606", bg100 = "0d0d0d", bg200 = "141414", line = "343434",
-    cyan  = "45c8e6", red = "ff6458",
+    bg000 = "#060606", bg100 = "#0d0d0d", bg200 = "#141414", line = "#343434",
+    cyan  = "#45c8e6", red = "#ff6458",
 }
-local function rgba(hex, a) return "rgba(" .. hex .. (a or "ff") .. ")" end
+local function rgba(hex, a) return "rgba(" .. hex:gsub("#", "") .. (a or "ff") .. ")" end
 
 local mod      = "SUPER"
 local term     = "kitty"
@@ -25,9 +26,9 @@ hl.on("hyprland.start", function()
     -- environment into systemd/dbus, then graphical-session.target (xdg-desktop-portal needs it),
     -- then the shell, so Quickshell finds the portal already running
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP "
-        .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE "
+        .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE XDG_DATA_DIRS "
         .. "&& systemctl --user start hyprland-session.target hyprpolkitagent "
-        .. "; qs -c nook")                              -- bar, cheatsheet, widgets, wallpaper, launcher
+        .. "; nook-session-look hyprland; qs -c nook")  -- Ramen icons for KDE apps, then the shell
     hl.exec_cmd("mako")                                 -- notifications
     hl.exec_cmd("hypridle")                             -- lock when idle
 end)
@@ -36,13 +37,43 @@ hl.on("hyprland.shutdown", function()
     hl.exec_cmd("systemctl --user stop hyprland-session.target")
 end)
 
-hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (tile/cursors/pixelcursors.py)
+-- Flatpak apps (browsers too) for the launcher, xdg-settings and gtk-launch: start-hyprland skips
+-- /etc/profile.d/flatpak.sh, so the session would only see /usr/share/applications
+local home = os.getenv("HOME")
+local data_dirs = os.getenv("XDG_DATA_DIRS")
+if data_dirs == nil or data_dirs == "" then data_dirs = "/usr/local/share:/usr/share" end
+for _, dir in ipairs({ "/var/lib/flatpak/exports/share", home .. "/.local/share/flatpak/exports/share" }) do
+    if not (":" .. data_dirs .. ":"):find(":" .. dir .. ":", 1, true) then data_dirs = dir .. ":" .. data_dirs end
+end
+hl.env("XDG_DATA_DIRS", data_dirs)
+
+hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (shared/cursors/pixelcursors.py)
 hl.env("XCURSOR_SIZE", "16")
 hl.env("HYPRCURSOR_SIZE", "16")
 -- Qt apps: qt6ct (the KDE-aware build) with the NookRamen colour scheme, Breeze style, Nook icons.
 -- Only this session reads ~/.config/qt6ct, so Plasma keeps its pastel Nook scheme.
-hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+-- Plain qt6ct (Ubuntu) only hands over a QPalette, which Kirigami apps (Discover, System Settings)
+-- ignore, and Qt5 apps can't load it at all: there KDE's own platform theme (Qt5 and Qt6) does
+-- the job, reading colours and icons from kdeglobals.
+local function qt6ct_kde_aware()
+    local probe = io.popen([[ldd "$(command -v qt6ct)" 2>/dev/null | grep -c KF6ColorScheme]])
+    if not probe then return true end
+    local hits = tonumber(probe:read("*l") or "0") or 0
+    probe:close()
+    return hits > 0
+end
+hl.env("QT_QPA_PLATFORMTHEME", qt6ct_kde_aware() and "qt6ct" or "kde")
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
+
+-- NVIDIA (proprietary driver): VA-API, GLX vendor and Electron on Wayland
+local nv = io.open("/proc/driver/nvidia/version", "r")
+if nv then
+    nv:close()
+    hl.env("LIBVA_DRIVER_NAME", "nvidia")
+    hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+    hl.env("NVD_BACKEND", "direct")
+end
+hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 
 -------------------------------------------------------------------------------
 -- look
@@ -92,7 +123,7 @@ hl.config({
         disable_hyprland_logo    = true,
         disable_splash_rendering = true,
         force_default_wallpaper  = 0,
-        background_color         = "rgb(" .. C.bg000 .. ")",
+        background_color         = "rgb(" .. C.bg000:gsub("#", "") .. ")",
     },
 
 })
@@ -116,6 +147,78 @@ end
 hl.window_rule({ match = { class = "^(org.kde.polkit-kde-authentication-agent-1|hyprpolkitagent|pavucontrol|org.pulseaudio.pavucontrol|nm-connection-editor|blueman-manager)$" }, float = true })
 hl.window_rule({ match = { title = "^(Open File|Save File|Open Folder|Choose Files?).*$" }, float = true })
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })
+
+-------------------------------------------------------------------------------
+-- gaming: tearing for games, VRR in fullscreen, direct scanout, no lock mid-game
+-------------------------------------------------------------------------------
+hl.config({
+    general = { allow_tearing = true },   -- only windows with `immediate` tear
+    misc    = { vrr = 2 },                -- variable refresh rate for fullscreen windows
+    render  = { direct_scanout = 2 },     -- skip compositing for fullscreen games
+})
+-- Steam/Proton games (steam_app_<id>), gamescope, Wine/Lutris .exe windows
+hl.window_rule({
+    name             = "games",
+    match            = { class = "^(steam_app_[0-9]+|gamescope|.*\\.exe)$" },
+    immediate        = true,          -- tearing: lowest latency (needs allow_tearing)
+    idle_inhibit     = "fullscreen",  -- hypridle doesn't lock while you play fullscreen
+    content          = "game",        -- tells direct scanout / VRR it's a game
+    no_blur          = true,
+    no_dim           = true,
+    render_unfocused = true,          -- keeps rendering on the other screen
+})
+-- Steam's own small windows float
+hl.window_rule({ match = { class = "^steam$", title = "^(Friends List|Steam Settings|Properties.*|.* - Chat|Screenshot Manager)$" }, float = true })
+
+-------------------------------------------------------------------------------
+-- workspaces: 1–9, and every screen has its own home workspace
+-------------------------------------------------------------------------------
+-- Screens count left to right from 0, and screen s owns workspace s+1: the leftmost 1, the next 2,
+-- then 3, whatever screens are plugged in. The rest stay free and open on the focused screen.
+local function screens()
+    local ms = {}
+    for _, m in ipairs(hl.get_monitors()) do
+        if not m.is_mirror then table.insert(ms, m) end
+    end
+    table.sort(ms, function(a, b)
+        if a.x ~= b.x then return a.x < b.x end
+        return a.y < b.y
+    end)
+    return ms
+end
+
+local ws_rules = {}
+local function pin_workspaces()
+    for _, r in ipairs(ws_rules) do r:set_enabled(false) end
+    ws_rules = {}
+    local active = hl.get_active_workspace()
+    local owner = {}
+    for s, m in ipairs(screens()) do
+        if s > 9 then break end
+        owner[s] = m.name
+        table.insert(ws_rules, hl.workspace_rule({ workspace = tostring(s), monitor = m.name, default = true }))
+    end
+    -- a home workspace that exists elsewhere goes back to its screen, so re-docking restores it
+    for _, w in ipairs(hl.get_workspaces()) do
+        local to = w.id and owner[w.id]
+        if to and not w.special and w.monitor and w.monitor.name ~= to then
+            hl.dispatch(hl.dsp.workspace.move({ workspace = w.id, monitor = to }))
+        end
+    end
+    -- a screen showing an empty workspace outside 1–9 switches to its home one
+    for s, m in ipairs(screens()) do
+        local ws = m.active_workspace
+        if s <= 9 and ws and ws.id and (ws.id < 1 or ws.id > 9) and ws.windows == 0 then
+            hl.dispatch(hl.dsp.focus({ workspace = s }))
+        end
+    end
+    if active and active.id then hl.dispatch(hl.dsp.focus({ workspace = active.id })) end
+end
+
+pin_workspaces()
+for _, ev in ipairs({ "hyprland.start", "monitor.added", "monitor.removed", "monitor.layout_changed" }) do
+    hl.on(ev, pin_workspaces)
+end
 
 -------------------------------------------------------------------------------
 -- keybinds  (description = "group: label" → cheatsheet)
@@ -151,23 +254,29 @@ bind(M("mouse:272"), hl.dsp.window.drag(),   "windows: drag = move",   { mouse =
 bind(M("mouse:273"), hl.dsp.window.resize(), "windows: drag = resize", { mouse = true })
 
 -- workspaces
-for i = 1, 9 do
-    bind(M(tostring(i)),  hl.dsp.focus({ workspace = i }),       "workspaces: switch to " .. i)
-    bind(MS(tostring(i)), hl.dsp.window.move({ workspace = i }), "workspaces: send window to " .. i)
+for n = 1, 9 do
+    bind(M(tostring(n)),  hl.dsp.focus({ workspace = n }),       "workspaces: switch to " .. n)
+    bind(MS(tostring(n)), hl.dsp.window.move({ workspace = n }), "workspaces: send window here, also off a workspace the bar doesn't show, to " .. n)
 end
 bind(M("S"),          hl.dsp.workspace.toggle_special("scratch"),         "workspaces: scratchpad")
-bind(MS("S"),         hl.dsp.window.move({ workspace = "special:scratch" }), "workspaces: to scratchpad")
+bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratch" }), "workspaces: to scratchpad")
 bind(M("mouse_down"), hl.dsp.focus({ workspace = "e+1" }),                "workspaces: next (scroll)")
 bind(M("mouse_up"),   hl.dsp.focus({ workspace = "e-1" }),                "workspaces: previous (scroll)")
 
 -- system
 bind(M("L"),     hl.dsp.exec_cmd("loginctl lock-session"),                         "system: lock")
 bind(M("K"),     hl.dsp.exec_cmd("hyprctl switchxkblayout all next && qs -c nook ipc call kb refresh"),              "system: keyboard eu ⇄ de")
-bind("PRINT",    hl.dsp.exec_cmd('grim -g "$(slurp)" - | wl-copy'),               "system: screenshot area")
-bind(MS("PRINT"), hl.dsp.exec_cmd("grim - | wl-copy"),                            "system: screenshot")
+-- screenshots: saved to ~/Pictures/Screenshots, copied, notified (bin/nook-shot); SUPER ⇧ S like Plasma
+bind(MS("S"),    hl.dsp.exec_cmd("nook-shot area"),                                "system: screenshot area")
+bind(MS("W"),    hl.dsp.exec_cmd("nook-shot window"),                              "system: screenshot window")
+bind(MS("A"),    hl.dsp.exec_cmd("nook-shot screen"),                              "system: screenshot screen")
+hl.bind("PRINT",    hl.dsp.exec_cmd("nook-shot area"))
+hl.bind(MS("PRINT"), hl.dsp.exec_cmd("nook-shot screen"))
 bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet toggle"),         "system: this cheatsheet")
 bind(MS("R"),    hl.dsp.exec_cmd("pkill -x qs; qs -c nook"),                       "system: reload shell")
 bind(MS("E"),    hl.dsp.exit(),                                                    "system: exit hyprland")
+bind(M("G"),     hl.dsp.exec_cmd("nook-gamemode"),                                 "system: game mode on / off")
+bind(MS("P"),    hl.dsp.exec_cmd("nook-display"),                                  "system: screens extend ⇄ duplicate")
 
 -- media keys (no description: not on the cheatsheet)
 local L = { locked = true, repeating = true }

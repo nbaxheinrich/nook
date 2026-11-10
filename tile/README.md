@@ -1,13 +1,16 @@
-# λ nook-tile — Hyprland + Quickshell, Ramen Sign
+# λ nook-tile — Hyprland + Quickshell
 
-The tiling variant of nook. It's a second session next to Plasma, built from the **Nook / Ramen Sign**
-design system: neutral black and greys, nine neons with one job each, and cyan for focus.
+The tiling half of nook v2. It's a second session next to Plasma, drawn in the **Ramen Sign** design
+system (neutral black and greys, nine neons with one job each, cyan for focus), and it takes any palette.
 
 ```bash
-./install.sh                # from the repo root: Plasma rice + nook-tile + login screen, all in one
-tile/install.sh             # nook-tile alone: packages (sudo), then link the configs
-tile/install.sh --no-deps   # links only
+./nook                                  # from the repo root: the TUI (pick "tile")
+tile/install.sh --palette=ramen         # nook-tile alone: packages (sudo), then link the configs
+tile/install.sh --palette=cocoa --no-deps
 ```
+
+With **ramen**, the configs are symlinks into this folder (edits show up live). With any other palette,
+they link to a recoloured copy in `~/.local/share/nook/tile-build`. Re-run the installer after editing.
 
 | system | Hyprland 0.57+ | Quickshell | notes |
 | --- | --- | --- | --- |
@@ -21,26 +24,25 @@ On other distros, install Hyprland ≥ 0.57, Quickshell, kitty, mako and qt6ct y
 
 Log out, pick **Hyprland** on the login screen. `SUPER ⇧ E` takes you back.
 
-All configs are **symlinks into this folder**. Hyprland reloads `nook.lua` when you save it,
-and Quickshell reloads its folder when you save it, so editing here changes the live desktop.
+Hyprland reloads `nook.lua` and Quickshell reloads its folder when a file changes.
+The shell, prompt and command-line tools are the shell part's (`./nook` → shell), and the login screen is the login part's.
 
 | file | goes to | what |
 | --- | --- | --- |
 | `hypr/nook.lua` | `~/.config/hypr/nook.lua` (link) | Look, rules, autostart and **every keybind**. Hyprland 0.57 is configured in Lua. |
-| `hypr/machine.lua` | `~/.config/hypr/machine.lua` (copied once, yours) | Monitors (DP-2 landscape, DP-1 portrait on the right), EurKEY layout, workspaces 1–5 / 6–9 per screen. |
+| `hypr/machine.lua` | `~/.config/hypr/machine.lua` (copied once, yours) | Monitors (DP-2 landscape, DP-1 portrait on the right), EurKEY layout. |
 | `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | Just `require("machine")` and `require("nook")`. |
 | `hypr/hyprlock.conf`, `hypridle.conf` | `~/.config/hypr/` (links) | VT323 lock screen in orange, cyan input. Locks after 10 min. |
 | `quickshell/nook/` | `~/.config/quickshell/nook` (link) | The shell, started with `qs -c nook`. |
-| `kitty/nook.conf` | `~/.config/kitty/` (link + `include`) | Ramen palette, 90% opacity. Sets `NOOK_THEME=ramen` for the prompt. |
+| `kitty/nook.conf` | `~/.config/kitty/` (link + `include`) | The palette, 90% opacity; `NOOK=1` and the axolotl fastfetch for the shell part. |
+| `ssh/nook.conf` | `~/.ssh/nook.conf` (copy, mode 600, + `Include` at the end of `~/.ssh/config`) | `TERM=xterm-256color` for ssh, so `nano` & co. work on machines without kitty's terminfo (`Error opening terminal: xterm-kitty`). A `Host` block of your own above it wins. |
 | `mako/config` | `~/.config/mako/` (link) | Notifications top-right: `[i]` / `[~]` / `[!!]`, critical ones in red. |
-| `cursors/pixelcursors.py` | `~/.local/share/icons/Nook-Pixel` (generated) | Old-school pixel cursors (Win95 / Mac classic): white with a black outline, hard-edged, orange sand in the hourglass, red no-entry sign. |
+| `../shared/cursors/pixelcursors.py` | `~/.local/share/icons/Nook-Pixel` (generated) | Old-school pixel cursors (Win95 / Mac classic): white with a black outline, hard-edged, orange sand in the hourglass, red no-entry sign. |
 | `systemd/hyprland-session.target` | `~/.config/systemd/user/` (link) | Starts `graphical-session.target` so xdg-desktop-portal runs (screen sharing, file dialogs). |
-| `fastfetch/ramen.*` | `~/.config/fastfetch/` (links) | Candy logo, fire to ice. |
-| `qt/NookRamen.colors` | `~/.local/share/color-schemes/` (link) + `~/.config/qt6ct/qt6ct.conf` | Qt/KDE apps in Ramen Sign: Breeze style, cyan selection and focus, your Plasma fonts and icons. Only the Hyprland session uses it (`QT_QPA_PLATFORMTHEME=qt6ct`). |
-| `starship/ramen.toml` | `~/.config/starship/` (link) | The terminal prompt (starship): `╭─[λ user@host]─[~/path]─[git:branch ●2]` / `╰─▶`, with duration, exit code and time on the right. Red is the accent, cyan the host, blue the path, gold the git state. Without starship, the nook oh-my-zsh prompt is recoloured instead. |
-| `../theme/shell/ramen.zsh` | `~/.local/share/nook/` | Same nook prompt in the neons, loaded when `NOOK_THEME=ramen`. |
+| `../shared/icons/build.sh <palette>` | `~/.local/share/icons/Nook-Ramen` or `Nook` (generated) | The rice's icon set (BeautyLine + Breeze symbolic) with one neon per category: files gold, dev aqua, comms cyan, network blue, system amber, media rose, time red, security orange, session cream. KDE apps read the icon theme from the shared `kdeglobals`, so `bin/nook-session-look` sets `Nook-Ramen` when Hyprland starts and puts Plasma's back when Plasma starts (a Plasma-only autostart entry). |
+| `qt/qt6ct.conf` + `../palettes/kde/*.colors` | `~/.config/qt6ct/` | Qt/KDE apps in the palette: Breeze style, cyan selection and focus, your Plasma fonts and icons. Only the Hyprland session uses it (`QT_QPA_PLATFORMTHEME=qt6ct`). |
 
-**Red is the accent** (start button, clock, the cyan → red window border, glows, hover in Qt apps). Orange takes over danger: urgent workspaces, errors, critical notifications, the lock button. The login screen (`scripts/sddm.sh`) uses the same Ramen Sign look, for SDDM and Plasma Login.
+**Red is the accent** (start button, clock, the cyan → red window border, glows, hover in Qt apps). Orange takes over danger: urgent workspaces, errors, critical notifications, the lock button. The login screen (`shared/login/login.sh`) takes any palette, for SDDM and Plasma Login.
 
 ## The shell (Quickshell)
 
@@ -77,14 +79,34 @@ and Quickshell reloads its folder when you save it, so editing here changes the 
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.
 - `Theme.qml` holds the tokens and `Stats.qml` the shared `/proc` numbers.
 
+## Screen sharing
+
+It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app asks). Two things keep it working:
+- KDE's `xwaylandvideobridge` is kept to Plasma (`NotShowIn=Hyprland`). Under Hyprland it opened shares by itself and looped on formats.
+- Electron apps from Flatpak (Discord, Vesktop) run natively on Wayland (`ELECTRON_OZONE_PLATFORM_HINT=auto`), so they share through the portal instead of needing the bridge.
+
+## Gaming
+
+- **Global:** tearing allowed, VRR for fullscreen windows (`misc.vrr = 2`), direct scanout for fullscreen games.
+- **Games** (`steam_app_<id>`, `gamescope`, `*.exe`) get a rule:
+  - tearing (`immediate`) for the lowest latency
+  - no idle lock while fullscreen
+  - `content = "game"`
+  - no blur or dimming
+  - they keep rendering when the other screen has focus
+- **NVIDIA:** `LIBVA_DRIVER_NAME`, `__GLX_VENDOR_LIBRARY_NAME` and `NVD_BACKEND` are set when the proprietary driver is loaded.
+- **`SUPER G` game mode** (`bin/nook-gamemode`) turns animations, blur, shadows, dimming and gaps off. Press it again to reload the normal look.
+- **`SUPER ⇧ P` screens** (`bin/nook-display`) toggles extend ⇄ duplicate: every other screen mirrors the focused one, upright in its own rotation (letterboxed between portrait and landscape), and all screens switch to the biggest resolution they share (a small beamer gets a native, readable picture; `nook-display duplicate 1280x720` picks one yourself). Extend is a config reload, so the layout stays in `machine.lua`. `nook-display only` keeps just the focused screen.
+- **Steam launch options** worth using: `gamemoderun %command%` (CPU governor and priority), `mangohud %command%` (FPS overlay), or `gamescope -f -W 2560 -H 1440 -r 144 -- %command%` for games that misbehave with XWayland.
+
 ## Keys
 
 | | |
 | --- | --- |
 | apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
-| workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send · `SUPER S` scratchpad · `SUPER` + scroll |
-| system | `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `PRINT` area → clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
+| workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send (also off a workspace the bar doesn't show) · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad · `SUPER` + scroll. Every screen has a home workspace, counted from the left: 1, 2, 3 …; the rest open on the focused screen |
+| system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), saved to ~/Pictures/Screenshots + clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 
 ## Known gaps
 

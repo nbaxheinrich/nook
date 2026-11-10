@@ -238,8 +238,28 @@ grep -q '^include nook.conf' "$CFG/kitty/kitty.conf" || printf '\ninclude nook.c
 if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; then
   printf 'shell %s\n' "$zsh_bin" >> "$CFG/kitty/kitty.conf"
 fi
+# ssh from kitty: a TERM remote machines know. Copied, not linked: ssh refuses config files
+# others can write to, and the checkout is group-writable. `Match all` ends any Host block the
+# Include would otherwise fall into, and keeping it last lets the user's own blocks win.
+install -Dm600 "$TILE/ssh/nook.conf" "$HOME/.ssh/nook.conf"
+chmod 700 "$HOME/.ssh"
+touch "$HOME/.ssh/config" && chmod 600 "$HOME/.ssh/config"
+grep -q '^Include nook.conf' "$HOME/.ssh/config" || printf '\nMatch all\nInclude nook.conf\n' >> "$HOME/.ssh/config"
 link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
 link "$TILE/bin/nook-session-look"   "$HOME/.local/bin/nook-session-look"
+link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
+link "$TILE/bin/nook-display"        "$HOME/.local/bin/nook-display"
+# KDE's xwaylandvideobridge (autostarted for X11 apps' screen sharing) fights Hyprland's portal:
+# it opens shares by itself and loops on formats. Keep it to Plasma.
+if [ -f /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop ]; then
+  mkdir -p "$CFG/autostart"
+  grep -v '^NotShowIn=' /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop > "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
+  echo 'NotShowIn=Hyprland;' >> "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
+fi
+# Electron apps from Flatpak (Discord): native Wayland, so screen sharing goes through the portal
+for app in com.discordapp.Discord dev.vencord.Vesktop; do
+  flatpak info "$app" >/dev/null 2>&1 && flatpak override --user --env=ELECTRON_OZONE_PLATFORM_HINT=auto "$app"
+done
 # Plasma puts its own icon theme back when it starts (KDE apps read it from the shared kdeglobals)
 mkdir -p "$CFG/autostart"
 cat > "$CFG/autostart/nook-session-look.desktop" <<DESKTOP
@@ -256,7 +276,7 @@ link "$TSRC/mako/config"            "$CFG/mako/config"
 # graphical-session.target for the portal (Hyprland without uwsm does not start it)
 link "$TSRC/systemd/hyprland-session.target" "$CFG/systemd/user/hyprland-session.target"
 systemctl --user daemon-reload 2>/dev/null || true
-ok "kitty, mako ($palette), hyprland-session.target (the shell and prompt: ./nook → shell)"
+ok "kitty (+ ssh TERM), mako ($palette), hyprland-session.target (the shell and prompt: ./nook → shell)"
 
 [ -d "${BACKUP_DIR}" ] && ok "replaced files backed up to ${BACKUP_DIR/#$HOME/~}"
 

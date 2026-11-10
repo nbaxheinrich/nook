@@ -67,3 +67,5 @@ if (( NOOK_FETCH )) && [[ -o interactive && -n ${NOOK:-} && -z ${NOOK_FETCHED:-}
   export NOOK_FETCHED=1
   if [[ -n ${NOOK_FASTFETCH:-} && -f $NOOK_FASTFETCH ]]; then fastfetch -c "$NOOK_FASTFETCH"; else fastfetch; fi
 fi
+# and a plain `fastfetch` shows the same design (kitty in nook-tile points this at the Ramen one)
+[[ -n ${NOOK_FASTFETCH:-} && -f $NOOK_FASTFETCH ]] && alias fastfetch='fastfetch -c "$NOOK_FASTFETCH"'

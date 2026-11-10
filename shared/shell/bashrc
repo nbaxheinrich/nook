@@ -6,8 +6,10 @@ if [[ $- == *i* && -n ${NOOK:-} ]]; then
   PS1='\[\e[38;2;166;230;191m\]λ\[\e[0m\] \[\e[38;2;163;205;245m\]\w\[\e[0m\] \[\e[38;2;191;174;159m\]>\[\e[0m\] '
   if (( NOOK_FETCH )) && [[ -z ${NOOK_FETCHED:-} ]] && command -v fastfetch >/dev/null; then
     export NOOK_FETCHED=1
-    fastfetch
+    if [[ -n ${NOOK_FASTFETCH:-} && -f $NOOK_FASTFETCH ]]; then fastfetch -c "$NOOK_FASTFETCH"; else fastfetch; fi
   fi
+  # and a plain `fastfetch` shows the same design (kitty in nook-tile points this at the Ramen one)
+  [[ -n ${NOOK_FASTFETCH:-} && -f $NOOK_FASTFETCH ]] && alias fastfetch='fastfetch -c "$NOOK_FASTFETCH"'
   alias keys='nook-keys'
   # zoxide, eza, bat, fd, fzf colours
   [ -f "$HOME/.local/share/nook/tools.sh" ] && . "$HOME/.local/share/nook/tools.sh"

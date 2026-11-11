@@ -9,6 +9,14 @@
 //   │ [ lock ] [ sleep ] [ reboot ] [ shutdown ]        ↑↓ nav · ⏎ run │
 //   └──────────────────────────────────────────────────────────────────┘
 //
+// Keyboard only, the focus never leaves the prompt:
+//   apps:  ↑↓ (ctrl n / p) move through every result, the list scrolls · pgup pgdn ±9 ·
+//          ⏎ run · alt 1‥9 run a visible row · tab → power · esc close
+//   power: ←→ ↑↓ pick · ⏎ / space press (reboot / shutdown ask with a second ⏎) ·
+//          tab or esc → apps · typing goes back to the apps and searches
+//   from anywhere: alt l lock · alt s sleep · alt r reboot · alt p shutdown (twice for the last two),
+//          or type it: "shut", "reb", "lock", "sleep" … list the power actions first, ⏎ runs them
+//
 // Pinned apps come from config/apps.conf (the same list as the Plasma taskbar; apps.conf in
 // this folder is a symlink to it). Typing searches every installed .desktop entry.
 import Quickshell
@@ -23,7 +31,10 @@ Scope {
     id: root
 
     property string query: ""
-    property int sel: 0
+    property int sel: 0                     // index into results (all of them, not only the shown rows)
+    property int offset: 0                  // first result shown
+    property string zone: "apps"            // where the keys go: apps · power
+    property int psel: 0                    // selected power button
     property var pinned: []                 // [{label, hue, entry}]
     property string armed: ""               // power button waiting for a second click
     property string kernel: ""
@@ -43,7 +54,7 @@ Scope {
         target: Ui
         function onLauncherOpenChanged() {
             if (Ui.launcherOpen) {
-                root.query = ""; root.sel = 0; root.armed = "";
+                root.query = ""; root.sel = 0; root.offset = 0; root.armed = ""; root.zone = "apps";
                 info.running = true;
             }
         }
@@ -124,25 +135,51 @@ Scope {
         }
         hits.sort((a, b) => b.s - a.s || a.e.name.localeCompare(b.e.name));
         const seen = new Set();
-        return hits.filter(h => !seen.has(h.e.name) && seen.add(h.e.name))
-                   .map(h => ({ label: h.e.name.toLowerCase(), hue: root.hueOf(h.e), entry: h.e }));
+        return root.powerHits(q).concat(hits.filter(h => !seen.has(h.e.name) && seen.add(h.e.name))
+                   .map(h => ({ label: h.e.name.toLowerCase(), hue: root.hueOf(h.e), entry: h.e })));
     }
-    onResultsChanged: sel = 0
+    onResultsChanged: { sel = 0; offset = 0 }
+    onQueryChanged: armed = ""
+    // keep the selection on screen
+    onSelChanged: {
+        if (sel < offset) offset = sel;
+        else if (sel >= offset + maxRows) offset = sel - maxRows + 1;
+    }
+    function move(step, wrap) {
+        const n = root.results.length;
+        if (!n) return;
+        root.sel = wrap ? (root.sel + step + n) % n : Math.max(0, Math.min(n - 1, root.sel + step));
+    }
 
     function launch(i) {
         const r = root.results[i];
         if (!r) return;
+        if (r.power) { root.pressPower(r.power); return; }
         r.entry.execute();
         Ui.launcherOpen = false;
     }
 
     // ── power: click once to arm, again to run (lock and sleep run at once) ──
     readonly property var power: [
-        { id: "lock",     hue: "orange", cmd: ["loginctl", "lock-session"],  confirm: false },
-        { id: "sleep",    hue: "blue", cmd: ["systemctl", "suspend"],       confirm: false },
-        { id: "reboot",   hue: "gold", cmd: ["systemctl", "reboot"],        confirm: true },
-        { id: "shutdown", hue: "rose", cmd: ["systemctl", "poweroff"],      confirm: true }
+        { id: "lock",     hue: "orange", key: Qt.Key_L, cap: "L", cmd: ["loginctl", "lock-session"], confirm: false,
+          words: ["lock"] },
+        { id: "sleep",    hue: "blue",   key: Qt.Key_S, cap: "S", cmd: ["systemctl", "suspend"],     confirm: false,
+          words: ["sleep", "suspend"] },
+        { id: "reboot",   hue: "gold",   key: Qt.Key_R, cap: "R", cmd: ["systemctl", "reboot"],      confirm: true,
+          words: ["reboot", "restart"] },
+        { id: "shutdown", hue: "rose",   key: Qt.Key_P, cap: "P", cmd: ["systemctl", "poweroff"],    confirm: true,
+          words: ["shutdown", "poweroff", "halt", "off"] }
     ]
+    // typed power words: two letters are enough ("sh", "reb")
+    function powerHits(q) {
+        if (q.length < 2) return [];
+        return root.power.filter(p => p.words.some(w => w.startsWith(q)))
+                         .map(p => ({ label: p.id, hue: p.hue, power: p }));
+    }
+    function pickPower(i) {
+        root.psel = (i + root.power.length) % root.power.length;
+        root.armed = "";
+    }
     function pressPower(p) {
         if (p.confirm && root.armed !== p.id) { root.armed = p.id; return; }
         Ui.launcherOpen = false;
@@ -331,12 +368,33 @@ Scope {
                                 function onLauncherOpenChanged() { if (Ui.launcherOpen) { input.text = ""; input.forceActiveFocus(); } }
                             }
                             Keys.onPressed: e => {
-                                const n = Math.min(root.results.length, root.maxRows);
-                                if (e.key === Qt.Key_Escape) { Ui.launcherOpen = false; e.accepted = true; }
-                                else if (e.key === Qt.Key_Down || (e.key === Qt.Key_Tab && !(e.modifiers & Qt.ShiftModifier))) { root.sel = n ? (root.sel + 1) % n : 0; e.accepted = true; }
-                                else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab) { root.sel = n ? (root.sel - 1 + n) % n : 0; e.accepted = true; }
-                                else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { root.launch(root.sel); e.accepted = true; }
-                                else if ((e.modifiers & Qt.AltModifier) && e.key >= Qt.Key_1 && e.key <= Qt.Key_9) { root.launch(e.key - Qt.Key_1); e.accepted = true; }
+                                const k = e.key, ctrl = e.modifiers & Qt.ControlModifier;
+                                const altPower = (e.modifiers & Qt.AltModifier) ? root.power.find(p => p.key === k) : null;
+                                if (altPower) {
+                                    root.zone = "power";
+                                    root.psel = root.power.indexOf(altPower);
+                                    root.pressPower(altPower);
+                                } else if (k === Qt.Key_Tab || k === Qt.Key_Backtab) {
+                                    root.zone = root.zone === "apps" ? "power" : "apps";
+                                    root.armed = "";
+                                } else if (root.zone === "power") {
+                                    if (k === Qt.Key_Escape) { root.zone = "apps"; root.armed = ""; }
+                                    else if (k === Qt.Key_Left || k === Qt.Key_Up) root.pickPower(root.psel - 1);
+                                    else if (k === Qt.Key_Right || k === Qt.Key_Down) root.pickPower(root.psel + 1);
+                                    else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space) root.pressPower(root.power[root.psel]);
+                                    // anything else is typing: back to the apps, the prompt takes the key
+                                    else { if (e.text !== "") { root.zone = "apps"; root.armed = ""; } return; }
+                                } else {
+                                    if (k === Qt.Key_Escape) Ui.launcherOpen = false;
+                                    else if (k === Qt.Key_Down || (ctrl && k === Qt.Key_N)) root.move(1, true);
+                                    else if (k === Qt.Key_Up || (ctrl && k === Qt.Key_P)) root.move(-1, true);
+                                    else if (k === Qt.Key_PageDown) root.move(root.maxRows, false);
+                                    else if (k === Qt.Key_PageUp) root.move(-root.maxRows, false);
+                                    else if (k === Qt.Key_Return || k === Qt.Key_Enter) root.launch(root.sel);
+                                    else if ((e.modifiers & Qt.AltModifier) && k >= Qt.Key_1 && k <= Qt.Key_9) root.launch(root.offset + k - Qt.Key_1);
+                                    else return;
+                                }
+                                e.accepted = true;
                             }
                         }
                     }
@@ -356,16 +414,18 @@ Scope {
                         Layout.alignment: Qt.AlignTop
                         spacing: 1
                         Label {
-                            text: root.query === "" ? "APPS // PINNED" : "APPS // MATCH · " + root.results.length
+                            text: (root.query === "" ? "APPS // PINNED" : "APPS // MATCH · " + root.results.length)
+                                  + (root.results.length > root.maxRows ? "  [" + (root.offset + 1) + "–" + Math.min(root.results.length, root.offset + root.maxRows) + "]" : "")
                             Layout.bottomMargin: 5
                         }
                         Repeater {
-                            model: root.results.slice(0, root.maxRows)
+                            model: root.results.slice(root.offset, root.offset + root.maxRows)
                             Rectangle {
                                 id: row
                                 required property var modelData
                                 required property int index
-                                readonly property bool selected: index === root.sel
+                                readonly property int at: root.offset + index
+                                readonly property bool selected: at === root.sel && root.zone === "apps"
                                 readonly property color hue: Theme[modelData.hue] ?? Theme.amber
                                 Layout.fillWidth: true
                                 implicitHeight: 24
@@ -377,26 +437,31 @@ Scope {
                                     anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
                                     spacing: 8
                                     Mono {
-                                        text: "[" + String(row.index + 1).padStart(2, "0") + "]"
+                                        text: "[" + String(row.at + 1).padStart(2, "0") + "]"
                                         color: row.selected ? Theme.cyan : Theme.faint
                                     }
                                     Image {
-                                        source: Icons.url(root.iconOf(row.modelData.entry, row.modelData.hue), row.hue.toString())
+                                        source: Icons.url(row.modelData.power ? "power" : root.iconOf(row.modelData.entry, row.modelData.hue), row.hue.toString())
                                         sourceSize: Qt.size(16, 16)
                                         Layout.preferredWidth: 16; Layout.preferredHeight: 16
                                         layer.enabled: true
                                         layer.effect: MultiEffect { shadowEnabled: true; shadowColor: row.hue; shadowBlur: 0.4; shadowOpacity: 0.6; shadowHorizontalOffset: 0; shadowVerticalOffset: 0 }
                                     }
-                                    Mono { text: row.modelData.label; color: row.hue; Layout.maximumWidth: 150; elide: Text.ElideRight }
+                                    Mono { text: row.modelData.label + (row.modelData.power && root.armed === row.modelData.power.id ? "?" : ""); color: row.hue; Layout.maximumWidth: 150; elide: Text.ElideRight; font.bold: !!row.modelData.power && root.armed === row.modelData.power.id }
                                     Mono { text: ".".repeat(60); color: Theme.faint; Layout.fillWidth: true; clip: true; elide: Text.ElideNone }
-                                    Mono { text: root.binOf(row.modelData.entry); color: Theme.muted; Layout.maximumWidth: 90; elide: Text.ElideRight }
+                                    Mono {
+                                        text: !row.modelData.power ? root.binOf(row.modelData.entry)
+                                            : root.armed === row.modelData.power.id ? "⏎ again" : "alt " + row.modelData.power.cap.toLowerCase()
+                                        color: row.modelData.power && root.armed === row.modelData.power.id ? Theme.orange : Theme.muted
+                                        Layout.maximumWidth: 90; elide: Text.ElideRight
+                                    }
                                 }
                                 MouseArea {
                                     id: rowArea
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    onEntered: root.sel = row.index
-                                    onClicked: root.launch(row.index)
+                                    onEntered: { root.sel = row.at; root.zone = "apps" }
+                                    onClicked: root.launch(row.at)
                                 }
                             }
                         }
@@ -408,8 +473,9 @@ Scope {
                             Layout.leftMargin: 6
                         }
                         Mono {
+                            readonly property int below: root.results.length - root.offset - root.maxRows
                             visible: root.results.length > root.maxRows
-                            text: "+" + (root.results.length - root.maxRows) + " more · keep typing"
+                            text: (below > 0 ? "↓ " + below + " more" : "end of list") + (root.offset > 0 ? " · ↑ " + root.offset + " above" : "")
                             color: Theme.faint; font.pixelSize: Theme.small
                             Layout.leftMargin: 6
                         }
@@ -482,27 +548,47 @@ Scope {
                         Rectangle {
                             id: pw
                             required property var modelData
+                            required property int index
                             readonly property color hue: Theme[modelData.hue]
                             readonly property bool armedHere: root.armed === modelData.id
-                            implicitWidth: pwText.implicitWidth + 16
+                            readonly property bool picked: root.zone === "power" && root.psel === index
+                            implicitWidth: pwText.implicitWidth + pwKey.implicitWidth + 20
                             implicitHeight: 22
                             radius: Theme.radiusSm
-                            color: armedHere ? hue : pwArea.containsMouse ? Theme.soft(hue) : "transparent"
-                            border.width: 1
-                            border.color: hue
-                            Mono {
-                                id: pwText
+                            color: armedHere ? hue : pwArea.containsMouse || picked ? Theme.soft(hue) : "transparent"
+                            border.width: picked ? 2 : 1
+                            border.color: picked ? Theme.cyan : hue
+                            Row {
                                 anchors.centerIn: parent
-                                text: pw.armedHere ? pw.modelData.id + "?" : pw.modelData.id
-                                color: pw.armedHere ? Theme.onAccent : pw.hue
-                                font.pixelSize: Theme.small
-                                font.bold: pw.armedHere
+                                spacing: 4
+                                Mono {
+                                    id: pwText
+                                    text: pw.armedHere ? pw.modelData.id + "?" : pw.modelData.id
+                                    color: pw.armedHere ? Theme.onAccent : pw.hue
+                                    font.pixelSize: Theme.small
+                                    font.bold: pw.armedHere
+                                }
+                                // the alt key, as a faint cap
+                                Mono {
+                                    id: pwKey
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "alt " + pw.modelData.cap.toLowerCase()
+                                    color: pw.armedHere ? Theme.onAccent : Theme.faint
+                                    font.pixelSize: Theme.label
+                                }
                             }
                             MouseArea { id: pwArea; anchors.fill: parent; hoverEnabled: true; onClicked: root.pressPower(pw.modelData) }
                         }
                     }
                     Item { Layout.fillWidth: true }
-                    Mono { text: "↑↓ nav · ⏎ run · alt 1‥9 · esc"; color: Theme.faint; font.pixelSize: Theme.label }
+                    Mono {
+                        text: root.zone === "power"
+                            ? (root.armed !== "" ? "⏎ again: " + root.armed : "←→ ⏎ · tab apps")
+                            : root.armed !== "" ? "⏎ again: " + root.armed
+                            : "↑↓ ⏎ · tab power"
+                        color: root.armed !== "" ? Theme.orange : Theme.faint
+                        font.pixelSize: Theme.label
+                    }
                 }
             }
         }

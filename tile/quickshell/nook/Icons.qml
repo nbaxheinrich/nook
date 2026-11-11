@@ -17,6 +17,7 @@ Singleton {
         clock:    '<circle cx="12" cy="12" r="9"/><polyline points="12,7 12,12 16,14"/>',
         game:     '<rect x="2" y="7" width="20" height="11"/><line x1="7" y1="10" x2="7" y2="15"/><line x1="4.5" y1="12.5" x2="9.5" y2="12.5"/><rect x="15" y="10" width="2" height="2" fill="currentColor" stroke="none"/><rect x="17" y="13" width="2" height="2" fill="currentColor" stroke="none"/>',
         user:     '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/>',
+        power:    '<path d="M6.3 6.8a8 8 0 1 0 11.4 0"/><line x1="12" y1="2.5" x2="12" y2="11"/>',
         app:      '<rect x="4" y="4" width="16" height="16"/><rect x="9" y="9" width="6" height="6" fill="currentColor" stroke="none"/>'
     })
 

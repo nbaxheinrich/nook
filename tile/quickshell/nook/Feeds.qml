@@ -25,7 +25,7 @@ Singleton {
         command: [root.feed, "weather"]
         stdout: StdioCollector { onStreamFinished: root.weather = root.parse(this.text, { ok: false, error: "no data" }) }
     }
-    Timer { interval: 15 * 60000; running: true; repeat: true; triggeredOnStart: true; onTriggered: wx.running = true }
+    Timer { interval: 15 * 60000; running: Settings.shown("widget.weather"); repeat: true; triggeredOnStart: true; onTriggered: wx.running = true }
 
     // ── servers, every 10 s ──
     Process {
@@ -42,7 +42,7 @@ Singleton {
             }
         }
     }
-    Timer { interval: 10000; running: true; repeat: true; triggeredOnStart: true; onTriggered: ping.running = true }
+    Timer { interval: 10000; running: Settings.shown("widget.srv"); repeat: true; triggeredOnStart: true; onTriggered: ping.running = true }
 
     // ── calendar, every 5 min ──
     Process {
@@ -50,8 +50,50 @@ Singleton {
         command: [root.feed, "cal"]
         stdout: StdioCollector { onStreamFinished: root.cal = root.parse(this.text, { ok: false, error: "no data" }) }
     }
-    Timer { interval: 5 * 60000; running: true; repeat: true; triggeredOnStart: true; onTriggered: caldav.running = true }
+    Timer { interval: 5 * 60000; running: Settings.shown("widget.cal"); repeat: true; triggeredOnStart: true; onTriggered: caldav.running = true }
     function refreshCal() { caldav.running = true }
+
+    // ── widgets.conf itself, for the control center's nook tab: read with `nook-feed conf`,
+    //    changed one key at a time with `nook-feed set|unset`, then the feeds poll again ──
+    property var conf: ({ ok: false, srv: [], weather: {} })
+    property string confError: ""
+    property var pending: []
+    Process {
+        id: confRead
+        running: true
+        command: [root.feed, "conf"]
+        stdout: StdioCollector { onStreamFinished: root.conf = root.parse(this.text, { ok: false, srv: [], weather: {} }) }
+    }
+    Process {
+        id: confWrite
+        stderr: StdioCollector { onStreamFinished: { if (this.text.trim()) root.confError = this.text.trim() } }
+        onExited: code => {
+            if (code === 0) root.confError = "";
+            if (root.pending.length) return root.next();
+            confRead.running = true;
+            ping.running = true;
+            wx.running = true;
+            caldav.running = true;
+        }
+    }
+    function next() {
+        confWrite.command = [root.feed].concat(root.pending[0]);
+        root.pending = root.pending.slice(1);
+        confWrite.running = true;
+    }
+    function write(args) {
+        root.pending = root.pending.concat([args]);
+        if (!confWrite.running) root.next();
+    }
+    function setConf(section, key, value) { root.write(["set", section, key, value]) }
+    function unsetConf(section, key) {
+        if (section === "srv") {
+            const h = Object.assign({}, root.srvHist);
+            delete h[key];
+            root.srvHist = h;
+        }
+        root.write(["unset", section, key]);
+    }
 
     // ── top processes by cpu (idle ones by ram), every 3 s. top's 2nd sample is the current load (ps only has
     //    lifetime averages); C locale so the numbers use a dot ──
@@ -68,5 +110,5 @@ Singleton {
             }
         }
     }
-    Timer { interval: 3000; running: true; repeat: true; triggeredOnStart: true; onTriggered: top.running = true }
+    Timer { interval: 3000; running: Settings.shown("widget.proc"); repeat: true; triggeredOnStart: true; onTriggered: top.running = true }
 }

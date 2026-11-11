@@ -11,7 +11,7 @@ import QtQuick.Layouts
 
 Scope {
     id: root
-    property bool shown: true
+    readonly property bool shown: Settings.shown("desk.cheatsheet")
     property var groups: []
 
     readonly property var order: ["apps", "windows", "workspaces", "system"]
@@ -19,7 +19,7 @@ Scope {
 
     IpcHandler {
         target: "cheatsheet"
-        function toggle(): void { root.shown = !root.shown }
+        function toggle(): void { Settings.toggle("desk.cheatsheet") }
         function reload(): void { binds.running = true }
     }
 

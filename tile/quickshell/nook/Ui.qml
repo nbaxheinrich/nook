@@ -7,7 +7,7 @@ import QtQuick
 Singleton {
     property bool launcherOpen: false
     property bool controlOpen: false
-    property string controlTab: "audio"          // audio · net · bt · apps
+    property string controlTab: "audio"          // audio · net · bt · apps · nook
 
     function toggleLauncher() { controlOpen = false; launcherOpen = !launcherOpen }
     function openControl(tab) {

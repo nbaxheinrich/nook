@@ -40,6 +40,18 @@ Scope {
     readonly property var player: Mpris.players.values.find(p => p.isPlaying) ?? Mpris.players.values[0] ?? null
     readonly property int colW: 380
 
+    // what shows: picked in the control center's nook tab (Settings), and only with data to show
+    readonly property bool showTime: Settings.shown("widget.time")
+    readonly property bool showSys: Settings.shown("widget.sys")
+    readonly property bool showMedia: Settings.shown("widget.media") && player !== null
+    readonly property bool showWeather: Settings.shown("widget.weather") && Feeds.weather.ok === true
+    readonly property bool showSrv: Settings.shown("widget.srv") && (Feeds.srv.hosts ?? []).length > 0
+    readonly property bool showCal: Settings.shown("widget.cal")
+        && (Feeds.cal.ok === true || (Feeds.cal.error ?? "").indexOf("no [cal]") < 0)
+    readonly property bool showProc: Settings.shown("widget.proc")
+    readonly property bool colA: showTime || showSys || showMedia
+    readonly property bool colB: showWeather || showSrv || showCal || showProc
+
     // weather hue names from nook-feed → Theme colours
     function hue(n) { return Theme[n] ?? Theme.muted }
     // "today", "tmrw", or the weekday
@@ -135,7 +147,8 @@ Scope {
             margins { top: 48; right: 56 }
             // landscape: two columns (live + info on the right, the new feeds left of it);
             // portrait: one tall column next to the cheatsheet
-            implicitWidth: portrait ? root.colW : 2 * root.colW + 16
+            visible: root.colA || root.colB
+            implicitWidth: portrait || !(root.colA && root.colB) ? root.colW : 2 * root.colW + 16
             implicitHeight: grid.implicitHeight
             color: "transparent"
 
@@ -149,11 +162,13 @@ Scope {
 
                 // ── column A: clock, system, media ──
                 ColumnLayout {
+                    visible: root.colA
                     Layout.preferredWidth: root.colW
                     Layout.alignment: Qt.AlignTop
                     spacing: 16
 
                     Panel {
+                        visible: root.showTime
                         title: "TIME // LOCAL"
                         status: "wk" + root.isoWeek(clock.date)
                         statusHue: Theme.red
@@ -185,6 +200,7 @@ Scope {
                     }
 
                     Panel {
+                        visible: root.showSys
                         title: "SYS // LIVE"
                         status: Stats.temp > 0 ? Stats.temp + "°c" : ""
                         statusHue: Stats.temp >= 80 ? Theme.orange : Theme.amber
@@ -223,7 +239,7 @@ Scope {
                     }
 
                     Panel {
-                        visible: root.player !== null
+                        visible: root.showMedia
                         title: "NOW // PLAYING"
                         status: root.player?.isPlaying ? "▶ playing" : "▮▮ paused"
                         statusHue: Theme.rose
@@ -259,12 +275,13 @@ Scope {
 
                 // ── column B: weather, servers, calendar, processes ──
                 ColumnLayout {
+                    visible: root.colB
                     Layout.preferredWidth: root.colW
                     Layout.alignment: Qt.AlignTop
                     spacing: 16
 
                     Panel {
-                        visible: Feeds.weather.ok === true
+                        visible: root.showWeather
                         title: "WX // OUTSIDE"
                         status: Feeds.weather.place ?? ""
                         statusHue: Theme.gold
@@ -320,7 +337,7 @@ Scope {
                         id: srvPanel
                         readonly property var hosts: Feeds.srv.hosts ?? []
                         readonly property int up: hosts.filter(h => h.up).length
-                        visible: hosts.length > 0
+                        visible: root.showSrv
                         title: "SRV // HOMELAB"
                         status: up + "/" + hosts.length + " up"
                         statusHue: up === hosts.length ? Theme.aqua : Theme.orange
@@ -351,7 +368,7 @@ Scope {
                         readonly property var events: c.events ?? []
                         readonly property real now: clock.date.getTime() / 1000
                         readonly property var first: events.length ? events[0] : null
-                        visible: c.ok === true || (c.error ?? "").indexOf("no [cal]") < 0
+                        visible: root.showCal
                         title: "CAL // NEXT"
                         status: !first ? "" : first.allday ? root.dayLabel(first.start) + " · all day"
                             : first.start <= now ? "now · until " + Qt.formatTime(new Date(first.end * 1000), "HH:mm")
@@ -397,6 +414,7 @@ Scope {
                     }
 
                     Panel {
+                        visible: root.showProc
                         title: "PROC // TOP"
                         status: root.armed ? "click again = kill " + root.armed : "click = kill"
                         statusHue: root.armed ? Theme.orange : Theme.faint

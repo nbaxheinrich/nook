@@ -16,6 +16,7 @@
 # Every theme file is drawn in one palette and recoloured to the chosen one.
 set -euo pipefail
 source "$(dirname "$0")/../../lib/lib.sh"
+source "$REPO/lib/pkg.sh"
 CFG=$XDG_CONFIG_HOME
 SH="$REPO/shared/shell" CLI="$REPO/shared/cli"
 ALL="zsh omz prompt-nook zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git yazi lazygit tldr direnv dust duf glow opencode"
@@ -43,46 +44,27 @@ put() {  # SRC DEST [DRAWN]
   [ "${3:-cocoa}" = "$palette" ] || python3 -I "$REPO/lib/recolor.py" --from "${3:-cocoa}" --to "$palette" "$2" >/dev/null
 }
 
-# ── packages ────────────────────────────────────────────────────────────────
+# ── packages: each picked tool's, from lib/packages.tsv ─────────────────────
 if [ "$deps" = 1 ]; then
-  step "packages"
-  fam=$(distro_family)
-  pkgs=()
-  for t in $with; do
-    case "$fam:$t" in
-      *:prompt-starship) pkgs+=(starship) ;;
-      *:prompt-*|*:omz) pkgs+=(git) ;;
-      fedora:delta|arch:delta|suse:delta|debian:delta) pkgs+=(git-delta) ;;
-      fedora:fd|debian:fd) pkgs+=(fd-find) ;;
-      *:fd) pkgs+=(fd) ;;
-      *:opencode) ;;  # not a distro package; installed below with npm
-      *:tldr) pkgs+=(tealdeer) ;;
-      arch:dust) pkgs+=(dust) ;;
-      *:dust) pkgs+=(du-dust) ;;
-      *) pkgs+=("$t") ;;
-    esac
-  done
-  case "$fam" in
-    fedora) # lazygit isn't in Fedora; its COPR is the one the lazygit README points to
-            if [[ " ${pkgs[*]} " == *" lazygit "* ]] && ! have lazygit && ! dnf copr list 2>/dev/null | grep -q atim/lazygit; then
-              sudo dnf copr enable -y atim/lazygit || warn "COPR atim/lazygit not enabled; lazygit skipped"
-            fi
-            sudo dnf install -y --skip-unavailable "${pkgs[@]}" ;;
-    debian) sudo apt-get update -qq
-            ok_pkgs=(); for p in "${pkgs[@]}"; do apt-cache show "$p" >/dev/null 2>&1 && ok_pkgs+=("$p") || warn "$p is not in apt; skipped"; done
-            [ ${#ok_pkgs[@]} -eq 0 ] || sudo apt-get install -y "${ok_pkgs[@]}" ;;
-    arch)   sudo pacman -S --needed --noconfirm "${pkgs[@]}" ;;
-    suse)   sudo zypper install -y "${pkgs[@]}" ;;
-    *)      warn "unknown distro; install by hand: ${pkgs[*]}" ;;
-  esac
-  ok "${pkgs[*]}"
+  ids=$(pkg_default $(for t in $with; do echo "shell.$t"; done) | paste -sd' ')
+  step "packages: $ids"
+  special=$(pkg_install $ids)
+  # lazygit isn't in Fedora; its COPR is the one the lazygit README points to
+  if [[ $special == *lazygit* ]] && ! have lazygit; then
+    if dnf copr list 2>/dev/null | grep -q atim/lazygit || sudo dnf copr enable -y atim/lazygit; then
+      sudo dnf install -y lazygit
+    else
+      warn "COPR atim/lazygit not enabled; lazygit skipped"
+    fi
+  fi
   # OpenCode v2 isn't packaged by the distros: npm into the user's prefix when it's writable
   # (no sudo), otherwise OpenCode's own installer
-  if on opencode && ! have opencode; then
+  if [[ $special == *opencode* ]] && ! have opencode; then
     if have npm && [ -w "$(npm config get prefix)" ]; then npm install -g @opencode/cli >/dev/null
     else curl -fsSL https://opencode.ai/v2/install | bash; fi
     ok "opencode $(opencode --version 2>/dev/null)"
   fi
+  ok "packages in"
 fi
 
 # ── what's chosen, for zshrc / bashrc / tools.sh ─────────────────────────────

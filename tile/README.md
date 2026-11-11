@@ -60,6 +60,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - `SYS // LIVE` (cpu, ram, gpu, temp, net, workspaces), a hexdump of what you type, and the cat.
   - `[lock] [sleep] [reboot] [shutdown]`. Reboot and shutdown ask with a second click.
   - Keys (it all works without a mouse): `↑↓` or `Ctrl N`/`P` move through every result and the list scrolls, `PgUp`/`PgDn` jump 9, `⏎` runs, `Alt 1‥9` runs a visible row. `Tab` moves to the power buttons: `←→` pick, `⏎` presses (twice for reboot / shutdown), `Tab` or `Esc` go back, typing goes back and searches. Straight from the prompt: `Alt L` lock, `Alt S` sleep, `Alt R` reboot, `Alt P` shutdown (the last two press twice), or type it: `sh`, `reb`, `lock`, `sleep`, `off` … list the power action first, `⏎` runs it (twice for reboot / shutdown). `Esc` or a click outside closes.
+  - **Browser tabs**: `@` lists every open tab, `@word` filters them, and any search of two letters or more shows matching tabs below the apps. `⏎` shows the tab and focuses its window, `Ctrl W` closes it. Needs the **nook tabs** extension, loaded once in Brave (or Chrome): `brave://extensions` → Developer mode → Load unpacked → `tile/browser/nook-tabs`. It talks only to `bin/nook-tabs`, which the browser starts itself (registered by `install.sh` for that extension id alone) and which listens on a socket only you can open, for three requests: list, show, close. No remote-debugging port, no access to pages.
 - **Keyboard layout** (EurKEY / German, `kb_layout = "eu,de"` in `machine.lua`) shows as the dot in the clock pill. `SUPER K`, a click on the dot, or a right-click on the clock switches it.
 - **Control center** (`ControlCenter.qml`, above the clock on the right), five tabs in the launcher's look. Open it with `SUPER A` (last tab), `SUPER N` (net), `SUPER ⇧ B` (bluetooth), a click on the clock, or right-click `λ nook` (nook tab). It works fully from the keyboard: `↑↓` (or `j k`) move the focus, `⏎` / space press, `←→` change a volume (`⇧` for 1 %), `m` mutes, `del` forgets / removes, `m` on a tray app opens its menu, `Tab` `⇧Tab` or `1‥5` switch tabs, `Esc` closes.
   - `audio`: output and input device to pick, volume and mic bars (click, drag or scroll), mute, and a mixer per app.
@@ -111,7 +112,7 @@ It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app as
 
 | | |
 | --- | --- |
-| apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
+| apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser (the open window, again = the next one; only starts one if none is open) · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
 | workspaces | 1–9, not tied to a screen; at login the screens show 1, 2 … from the left. `SUPER n` brings workspace n to the focused screen; if the other screen shows it, the two trade · `SUPER ⇧ n` sends the window to n · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad. An unplugged screen's workspaces stay and `SUPER n` gets them back |
 | settings | `SUPER A` control center (last tab) · `SUPER N` net (wifi, ethernet) · `SUPER ⇧ B` bluetooth · `SUPER K` keyboard EurKEY ⇄ German |

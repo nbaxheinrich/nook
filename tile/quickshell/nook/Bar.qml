@@ -1,5 +1,7 @@
 // The bar: separate floating modules along the bottom, 10px above the edge, 12px from the sides.
-//   λ nook · workspaces · window title ······ clock ······ cpu/ram · vol · tray · power
+//   λ nook · workspaces · window title ··························· cpu/ram · ● clock · date ▮▮▮▯ · power
+// The clock pill is also the control center's button: sound, net, bluetooth, the tray apps and the
+// nook tab sit behind it (ControlCenter.qml).
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -8,8 +10,6 @@ import Quickshell.Widgets
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import Quickshell.Services.SystemTray
-import Quickshell.Bluetooth
-import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
@@ -55,6 +55,14 @@ Scope {
         }
     }
     PwObjectTracker { objects: [Pipewire.defaultAudioSink] }
+
+    // ── battery, for the clock's overview ──
+    readonly property var batt: UPower.displayDevice
+    readonly property bool hasBatt: batt.isLaptopBattery
+    readonly property real pct: batt.percentage > 1 ? batt.percentage / 100 : batt.percentage
+    readonly property bool charging: batt.state === UPowerDeviceState.Charging || batt.state === UPowerDeviceState.FullyCharged
+    readonly property color battHue: charging ? Theme.aqua : pct <= 0.15 ? Theme.orange : pct <= 0.3 ? Theme.gold : Theme.ink
+    readonly property color kbHue: kb === "de" ? Theme.gold : Theme.aqua
 
     // Hyprland 0.57 takes Lua dispatchers over IPC
     function dispatch(lua) { Quickshell.execDetached(["hyprctl", "dispatch", lua]) }
@@ -116,21 +124,18 @@ Scope {
             exclusiveZone: Theme.pill + 10 - 6
             color: "transparent"
 
-            // ── overflow: the clock sits in the middle, each side gets half of what's left ──
+            // ── overflow: the right side (cpu/ram, clock, power) gets at most half the bar ──
             // left:  start + workspaces stay; the window tag takes the rest (title first, then
             //        the whole tag, go when there's no room)
-            // right: cpu/ram goes first, then the tray icons ("bg N" stays)
+            // right: cpu/ram goes when it doesn't fit
             // Modules switched off in the nook tab (Settings) take no room.
             function room(p) { return p.visible ? p.implicitWidth + Theme.gap : 0 }
-            readonly property real half: (width - (clockPill.visible ? clockPill.implicitWidth : 0)) / 2 - Theme.gap
-            readonly property real tagRoom: half - room(startPill) - room(wsPill)
+            readonly property real half: width / 2 - Theme.gap
+            readonly property real tagRoom: width - room(startPill) - room(wsPill) - room(clockPill) - room(powerPill)
+                                            - (showCpu ? room(cpuPill) : 0) - 2 * Theme.gap
             readonly property real tagFixed: 28 + 4 * 10 + lb.implicitWidth + appLbl.implicitWidth + dash.implicitWidth + rb.implicitWidth
             readonly property real titleRoom: Math.min(320, tagRoom - tagFixed)
-            readonly property real bgIconsW: SystemTray.items.values.length * (16 + 10)
-            readonly property real bgFullW: bgPill.visible ? 28 + bgLbl.implicitWidth + bgIconsW + Theme.gap : 0
-            readonly property real rightCore: room(kbPill) + room(netbt) + room(vol) + room(powerPill) - Theme.gap
-            readonly property bool showCpu: rightCore + bgFullW + cpuPill.implicitWidth + Theme.gap <= half
-            readonly property bool showBgIcons: rightCore + bgFullW <= half
+            readonly property bool showCpu: room(clockPill) + room(powerPill) + cpuPill.implicitWidth <= half
 
             RowLayout {
                 anchors.fill: parent
@@ -225,92 +230,91 @@ Scope {
                     Label { text: Stats.ram + "%"; color: Theme.aqua }
                 }
 
-                // ── keyboard layout: click (or SUPER K) switches eu ⇄ de ──
+                // ── clock: the overview and the control center's button. kb dot · VT323 time · date ·
+                //    battery bar. Click = control center (SUPER A), right-click = next layout (SUPER K),
+                //    middle-click = mute, scroll = volume ±5%. Cyan ring + glow while the panel is open. ──
                 Pill {
-                    id: kbPill
-                    visible: Settings.shown("bar.kb") && root.kb !== ""
-                    onClicked: root.switchKb()
-                    onScrolled: root.switchKb()
-                    Label { text: "kb" }
-                    Label { text: root.kb; color: root.kb === "de" ? Theme.gold : Theme.aqua; font.bold: true }
-                }
-
-                // ── net · bt: wifi signal and bluetooth; click → control center ──
-                Pill {
-                    id: netbt
-                    visible: Settings.shown("bar.netbt")
-                    readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
-                    readonly property var wnet: wifi?.networks?.values.find(n => n.connected) ?? null
-                    readonly property var bta: Bluetooth.defaultAdapter
-                    readonly property int btOn: (bta?.devices?.values ?? []).filter(d => d.connected).length
-                    hot: Ui.controlOpen && (Ui.controlTab === "net" || Ui.controlTab === "bt")
-                    onClicked: m => Ui.openControl(m.button === Qt.RightButton ? "bt" : "net")
-                    Label { text: "net" }
-                    Label {
-                        text: netbt.wnet ? "▂▄▆█".slice(0, Math.max(1, Math.round(netbt.wnet.signalStrength * 4))).padEnd(4, "▁") : (netbt.wifi && Networking.wifiEnabled ? "····" : "wire")
-                        color: Theme.blue
-                    }
-                    Label { text: "bt"; Layout.leftMargin: 2 }
-                    Label {
-                        text: !netbt.bta || !netbt.bta.enabled ? "off" : netbt.btOn > 0 ? "●" + netbt.btOn : "○"
-                        color: netbt.bta?.enabled ? Theme.cyan : Theme.faint
-                    }
-                }
-
-                // ── volume: click → audio in the control center, right-click = mute, scroll = ±5% ──
-                Pill {
-                    id: vol
-                    visible: Settings.shown("bar.vol")
+                    id: clockPill
+                    visible: Settings.shown("bar.clock")
                     readonly property var sink: Pipewire.defaultAudioSink
-                    readonly property real v: sink?.audio?.volume ?? 0
-                    readonly property bool muted: sink?.audio?.muted ?? false
-                    hot: Ui.controlOpen && Ui.controlTab === "audio"
+                    readonly property bool attention: SystemTray.items.values.some(i => i.status === Status.NeedsAttention)
+                    hot: Ui.controlOpen
+                    border.width: hot ? 2 : 1
                     onClicked: m => {
-                        if (m.button === Qt.RightButton) { if (sink?.audio) sink.audio.muted = !sink.audio.muted }
-                        else Ui.openControl("audio")
+                        if (m.button === Qt.RightButton) root.switchKb();
+                        else if (m.button === Qt.MiddleButton) { if (sink?.audio) sink.audio.muted = !sink.audio.muted }
+                        else Ui.toggleControl();
                     }
-                    onScrolled: w => { if (sink?.audio) sink.audio.volume = Math.max(0, Math.min(1, v + (w.angleDelta.y > 0 ? 0.05 : -0.05))) }
-                    Label { text: "vol" }
+                    onScrolled: w => { if (sink?.audio) sink.audio.volume = Math.max(0, Math.min(1, sink.audio.volume + (w.angleDelta.y > 0 ? 0.05 : -0.05))) }
+                    layer.enabled: hot
+                    layer.effect: Glow { shadowColor: Theme.cyan; shadowBlur: 0.9; shadowOpacity: 0.6 }
+                    // keyboard layout: a glowing dot, aqua = eu, gold = de; click switches (like SUPER K)
+                    Item {
+                        visible: root.kb !== ""
+                        implicitWidth: 10; implicitHeight: 10
+                        Rectangle {
+                            id: kbDot
+                            anchors.centerIn: parent
+                            width: 8; height: 8; radius: 4
+                            color: root.kbHue
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                            layer.enabled: true
+                            layer.effect: Glow { shadowColor: kbDot.color; shadowBlur: 1.0; shadowOpacity: 0.9 }
+                        }
+                        MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: root.switchKb() }
+                    }
+                    Text {
+                        id: hhmm
+                        text: Qt.formatDateTime(clock.date, "HH:mm")
+                        color: Theme.red
+                        font.family: Theme.pixel
+                        font.pixelSize: 28
+                        layer.enabled: true
+                        layer.effect: Glow { shadowColor: Theme.red }
+                    }
+                    Rectangle { implicitWidth: 1; implicitHeight: 18; color: Theme.line }
                     Label {
-                        readonly property int n: Math.min(8, Math.round(vol.v * 8))
-                        text: vol.muted ? "muted" : "▮".repeat(n) + "▯".repeat(8 - n)
-                        color: vol.muted ? Theme.faint : Theme.rose
+                        // a plain date: "sa 07.11.2026" (weekday in the system language)
+                        text: Qt.locale().toString(clock.date, "ddd dd.MM.yyyy").replace(/^(\S+?)\.? /, "$1 ").toLowerCase()
+                        color: Theme.ink
+                        font.pixelSize: Theme.body
                     }
-                    Label {
-                        visible: UPower.displayDevice.isLaptopBattery
-                        readonly property real p: UPower.displayDevice.percentage
-                        text: "bat " + Math.round(p > 1 ? p : p * 100) + "%"
-                        color: Theme.aqua
-                    }
-                }
-
-                // ── background apps: count + icons; the pill opens the list, an icon its app ──
-                Pill {
-                    id: bgPill
-                    visible: Settings.shown("bar.bg") && SystemTray.items.values.length > 0
-                    hot: Ui.controlOpen && Ui.controlTab === "apps"
-                    onClicked: Ui.openControl("apps")
-                    Label { id: bgLbl; text: "bg " + SystemTray.items.values.length; color: Theme.amber }
-                    Repeater {
-                        model: SystemTray.items
-                        IconImage {
-                            id: icon
-                            required property var modelData
-                            visible: bar.showBgIcons
-                            source: modelData.icon
-                            implicitSize: 16
-                            MouseArea {
-                                anchors.fill: parent
-                                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                onClicked: m => {
-                                    if (m.button === Qt.RightButton || icon.modelData.onlyMenu) {
-                                        const p = icon.mapToItem(null, 0, 0);
-                                        icon.modelData.display(bar, p.x, p.y - 8);
-                                    } else icon.modelData.activate();
+                    // battery: a thin bar in its state's hue (aqua charging, gold ≤ 30 %, orange ≤ 15 %)
+                    Rectangle { visible: root.hasBatt; implicitWidth: 1; implicitHeight: 18; color: Theme.line }
+                    RowLayout {
+                        visible: root.hasBatt
+                        spacing: 6
+                        Rectangle {
+                            implicitWidth: 46; implicitHeight: 8
+                            radius: Theme.radiusSm
+                            color: Theme.bg300
+                            border.width: 1
+                            border.color: Theme.alpha(root.battHue, 0.45)
+                            Rectangle {
+                                id: battFill
+                                x: 1; y: 1
+                                height: parent.height - 2
+                                width: Math.max(2, (parent.width - 2) * Math.max(0, Math.min(1, root.pct)))
+                                radius: 1
+                                color: root.battHue
+                                Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                layer.enabled: true
+                                layer.effect: Glow { shadowColor: battFill.color }
+                                // charging: a slow pulse
+                                SequentialAnimation on opacity {
+                                    running: root.charging && root.pct < 1
+                                    loops: Animation.Infinite
+                                    onRunningChanged: if (!running) battFill.opacity = 1
+                                    NumberAnimation { to: 0.55; duration: 900; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1; duration: 900; easing.type: Easing.InOutSine }
                                 }
                             }
                         }
+                        Label { text: Math.round(root.pct * 100) + "%"; color: root.battHue }
                     }
+                    // muted, or a tray app asking for you: one small mark, details in the panel
+                    Label { visible: clockPill.sink?.audio?.muted ?? false; text: "mute"; color: Theme.faint }
+                    Label { visible: clockPill.attention; text: "●"; color: Theme.orange }
                 }
 
                 // ── power: solid red like λ nook; opens the menu (power buttons), right-click locks ──
@@ -329,28 +333,6 @@ Scope {
                 }
             }
 
-            // ── clock: VT323 red, centred on the screen (not between the modules) ──
-            Pill {
-                id: clockPill
-                visible: Settings.shown("bar.clock")
-                anchors.centerIn: parent
-                Text {
-                    id: hhmm
-                    text: Qt.formatDateTime(clock.date, "HH:mm")
-                    color: Theme.red
-                    font.family: Theme.pixel
-                    font.pixelSize: 28
-                    layer.enabled: true
-                    layer.effect: Glow { shadowColor: Theme.red }
-                }
-                Rectangle { implicitWidth: 1; implicitHeight: 18; color: Theme.line }
-                Label {
-                    // a plain date: "sa 07.11.2026" (weekday in the system language)
-                    text: Qt.locale().toString(clock.date, "ddd dd.MM.yyyy").replace(/^(\S+?)\.? /, "$1 ").toLowerCase()
-                    color: Theme.ink
-                    font.pixelSize: Theme.body
-                }
-            }
         }
     }
 }

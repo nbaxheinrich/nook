@@ -156,11 +156,11 @@ Scope {
                     Text { text: "nook"; color: Theme.onAccent; font.family: Theme.font; font.pixelSize: Theme.body; font.bold: true }
                 }
 
-                // ── workspaces 1–9: active = cyan bar, occupied = muted, empty = faint, urgent = orange ──
+                // ── workspaces 1–9: on this screen = cyan bar, occupied = muted, empty = faint,
+                //    urgent = orange. Click brings it to this screen (trades if the other one shows it) ──
                 Pill {
                     id: wsPill
                     visible: Settings.shown("bar.workspaces")
-                    onScrolled: w => root.dispatch(`hl.dsp.focus({ workspace = "${w.angleDelta.y < 0 ? "e+1" : "e-1"}" })`)
                     Repeater {
                         model: 9
                         Item {
@@ -188,7 +188,7 @@ Scope {
                             MouseArea {
                                 anchors.fill: parent
                                 anchors.margins: -3
-                                onClicked: root.dispatch(`hl.dsp.focus({ workspace = ${mark.ws} })`)
+                                onClicked: root.dispatch(`function() nook_show_workspace(${mark.ws}, "${bar.hmon?.name ?? ""}") end`)
                             }
                         }
                     }

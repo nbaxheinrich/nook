@@ -202,10 +202,13 @@ hl.window_rule({
 hl.window_rule({ match = { class = "^steam$", title = "^(Friends List|Steam Settings|Properties.*|.* - Chat|Screenshot Manager)$" }, float = true })
 
 -------------------------------------------------------------------------------
--- workspaces: 1–9, and every screen has its own home workspace
+-- workspaces: 1–9, they wander between screens
 -------------------------------------------------------------------------------
--- Screens count left to right from 0, and screen s owns workspace s+1: the leftmost 1, the next 2,
--- then 3, whatever screens are plugged in. The rest stay free and open on the focused screen.
+-- At login the screens show 1, 2 … from left to right. SUPER n brings workspace n to the focused
+-- screen. If n is showing on another screen, the two screens trade: that one gets the workspace
+-- you were on. A workspace belongs to no screen, so the numbers move with what you do. When a
+-- screen is unplugged its workspaces stay (Hyprland parks them on another screen) and SUPER n
+-- brings them back.
 local function screens()
     local ms = {}
     for _, m in ipairs(hl.get_monitors()) do
@@ -218,38 +221,50 @@ local function screens()
     return ms
 end
 
-local ws_rules = {}
-local function pin_workspaces()
-    for _, r in ipairs(ws_rules) do r:set_enabled(false) end
-    ws_rules = {}
-    local active = hl.get_active_workspace()
-    local owner = {}
-    for s, m in ipairs(screens()) do
-        if s > 9 then break end
-        owner[s] = m.name
-        table.insert(ws_rules, hl.workspace_rule({ workspace = tostring(s), monitor = m.name, default = true }))
+local function find_monitor(name)
+    for _, m in ipairs(hl.get_monitors()) do
+        if m.name == name then return m end
     end
-    -- a home workspace that exists elsewhere goes back to its screen, so re-docking restores it
-    for _, w in ipairs(hl.get_workspaces()) do
-        local to = w.id and owner[w.id]
-        if to and not w.special and w.monitor and w.monitor.name ~= to then
-            hl.dispatch(hl.dsp.workspace.move({ workspace = w.id, monitor = to }))
-        end
-    end
-    -- a screen showing an empty workspace outside 1–9 switches to its home one
-    for s, m in ipairs(screens()) do
-        local ws = m.active_workspace
-        if s <= 9 and ws and ws.id and (ws.id < 1 or ws.id > 9) and ws.windows == 0 then
-            hl.dispatch(hl.dsp.focus({ workspace = s }))
-        end
-    end
-    if active and active.id then hl.dispatch(hl.dsp.focus({ workspace = active.id })) end
 end
 
-pin_workspaces()
-for _, ev in ipairs({ "hyprland.start", "monitor.added", "monitor.removed", "monitor.layout_changed" }) do
-    hl.on(ev, pin_workspaces)
+local function find_workspace(n)
+    for _, w in ipairs(hl.get_workspaces()) do
+        if w.id == n then return w end
+    end
 end
+
+-- show workspace n on screen `here` (a monitor name; default: the focused screen)
+function nook_show_workspace(n, here)
+    local mon = here and here ~= "" and find_monitor(here) or hl.get_active_monitor()
+    if not mon or not n or n < 1 or n > 9 then return end
+    here = mon.name
+    local cur = mon.active_workspace and mon.active_workspace.id
+    if cur ~= n then
+        local ws = find_workspace(n)
+        if ws and ws.monitor and ws.monitor.name ~= here then
+            local there = ws.monitor.name
+            local visible = ws.monitor.active_workspace and ws.monitor.active_workspace.id == n
+            hl.dispatch(hl.dsp.workspace.move({ workspace = n, monitor = here }))
+            -- it was on the other screen: that screen takes the one we had
+            if visible and cur and cur > 0 then
+                hl.dispatch(hl.dsp.workspace.move({ workspace = cur, monitor = there }))
+            end
+        end
+    end
+    hl.dispatch(hl.dsp.focus({ workspace = n }))
+    -- a new workspace opens on the focused screen, which a click on another bar isn't
+    local ws = find_workspace(n)
+    if ws and ws.monitor and ws.monitor.name ~= here then
+        hl.dispatch(hl.dsp.workspace.move({ workspace = n, monitor = here }))
+        hl.dispatch(hl.dsp.focus({ workspace = n }))
+    end
+end
+
+-- at login: screen s (left to right) shows workspace s, the leftmost one keeps the focus
+hl.on("hyprland.start", function()
+    local ms = screens()
+    for s = math.min(#ms, 9), 1, -1 do nook_show_workspace(s, ms[s].name) end
+end)
 
 -------------------------------------------------------------------------------
 -- keybinds  (description = "group: label" → cheatsheet)
@@ -288,13 +303,11 @@ bind(M("mouse:273"), hl.dsp.window.resize(), "windows: drag = resize", { mouse =
 
 -- workspaces
 for n = 1, 9 do
-    bind(M(tostring(n)),  hl.dsp.focus({ workspace = n }),       "workspaces: switch to " .. n)
-    bind(MS(tostring(n)), hl.dsp.window.move({ workspace = n }), "workspaces: send window here, also off a workspace the bar doesn't show, to " .. n)
+    bind(M(tostring(n)),  function() nook_show_workspace(n) end, "workspaces: bring " .. n .. " here (trades screens if it's on the other one)")
+    bind(MS(tostring(n)), hl.dsp.window.move({ workspace = n }),  "workspaces: send window to " .. n)
 end
 bind(M("S"),          hl.dsp.workspace.toggle_special("scratch"),         "workspaces: scratchpad")
 bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratch" }), "workspaces: to scratchpad")
-bind(M("mouse_down"), hl.dsp.focus({ workspace = "e+1" }),                "workspaces: next (scroll)")
-bind(M("mouse_up"),   hl.dsp.focus({ workspace = "e-1" }),                "workspaces: previous (scroll)")
 
 -- system
 bind(M("L"),     hl.dsp.exec_cmd("loginctl lock-session"),                         "system: lock")

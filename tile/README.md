@@ -48,7 +48,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 
 - **Bar** (`Bar.qml`), floating at the bottom of every screen:
   - `λ nook` in cream opens the menu; right-click opens the control center's `nook` tab.
-  - Workspaces 1–9 as dots: cyan bar = active, grey = occupied, red = urgent. Click or scroll.
+  - Workspaces 1–9 as dots: cyan bar = on this screen, grey = occupied, red = urgent. A click brings that workspace to this screen.
   - The focused window as a `[ app — title ]` tag.
   - The **clock pill**, on the right before `⏻`, is the overview and the control center's button. It shows a glowing dot for the keyboard layout (aqua = EurKEY, gold = German; click the dot to switch), the VT323 time, the date, and the battery as a thin glowing bar with its percentage (aqua and pulsing while charging, gold at 30 % and below, orange at 15 % and below), plus `mute` and an orange `●` when a tray app needs you. Click opens the control center (sound, net, bluetooth, tray apps, nook) and the pill gets a cyan ring and glow while it's open. Right-click switches the layout, middle-click mutes, scroll changes the volume. Everything that used to have its own pill (kb, net · bt, vol, tray) lives behind it.
   - CPU braille sparkline and RAM.
@@ -113,7 +113,7 @@ It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app as
 | --- | --- |
 | apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
-| workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send (also off a workspace the bar doesn't show) · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad · `SUPER` + scroll. Every screen has a home workspace, counted from the left: 1, 2, 3 …; the rest open on the focused screen |
+| workspaces | 1–9, not tied to a screen; at login the screens show 1, 2 … from the left. `SUPER n` brings workspace n to the focused screen; if the other screen shows it, the two trade · `SUPER ⇧ n` sends the window to n · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad. An unplugged screen's workspaces stay and `SUPER n` gets them back |
 | settings | `SUPER A` control center (last tab) · `SUPER N` net (wifi, ethernet) · `SUPER ⇧ B` bluetooth · `SUPER K` keyboard EurKEY ⇄ German |
 | system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), saved to ~/Pictures/Screenshots + clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 

@@ -47,7 +47,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 ## The shell (Quickshell)
 
 - **Bar** (`Bar.qml`), floating at the bottom of every screen:
-  - `λ nook` in cream opens the menu.
+  - `λ nook` in cream opens the menu; right-click opens the control center's `nook` tab.
   - Workspaces 1–9 as dots: cyan bar = active, grey = occupied, red = urgent. Click or scroll.
   - The focused window as a `[ app — title ]` tag.
   - A VT323 clock in orange.
@@ -63,11 +63,12 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - `[lock] [sleep] [reboot] [shutdown]`. Reboot and shutdown ask with a second click.
   - Keys: `↑↓`/Tab to move, `⏎` to run, `Alt 1‥9` for direct launch, `Esc` or a click outside to close.
 - **Keyboard pill** `kb eu` / `kb de` in the bar: shows the active layout (EurKEY / German, `kb_layout = "eu,de"` in `machine.lua`). Click it or press `SUPER K` to switch.
-- **Control center** (`ControlCenter.qml`, `SUPER A`, or click `vol` / `net · bt` / `bg N` in the bar), four tabs in the launcher's look:
+- **Control center** (`ControlCenter.qml`, `SUPER A`, or click `vol` / `net · bt` / `bg N` in the bar, right-click `λ nook`), five tabs in the launcher's look:
   - `audio`: output and input device to pick, volume and mic bars (click, drag or scroll), mute, and a mixer per app.
   - `net`: wifi on/off and networks by signal; it scans while the tab is open. Click to connect or disconnect. A new secured network asks for its password right in the row (`⏎` joins, `show` reveals it); a wrong one shows why and asks again. Known networks have `[forget]` (click twice). Wired links (from `nmcli`, without container veths) connect and disconnect with a click. `settings` opens `nm-connection-editor`, or `nmtui` without it.
   - `bt`: bluetooth on/off, scan, devices with connect/disconnect and battery. A new device pairs, gets trusted and connects with one click; `[cancel]` stops pairing, `[forget]` (click twice) removes a paired one.
   - `apps`: the background apps (the tray) as a list. Click opens, right-click opens their menu. Also what's playing.
+  - `nook`: what the shell shows, live. Every bar module (λ nook, workspaces, window, clock, cpu · ram, keyboard, net · bt, volume, background, power), every desktop widget, the wallpaper's NOOK banner and dot grid, and the cheatsheet switch on and off with a click. The homelab hosts are added (`name` + `host` or `host:port`, `⏎`), changed (click a row) and removed (`[remove]`, click twice) here, and the weather place is set here. The switches are kept in `~/.config/nook/shell.json` (`Settings.qml`; only what's off is stored), hosts and place in `widgets.conf` (written by `nook-feed set|unset`, comments stay). Also over IPC: `qs -c nook ipc call nook toggle|on|off widget.srv`, `… nook list`.
 - **Cheatsheet** (`CheatSheet.qml`) sits on the wallpaper, under every window. `SUPER /` toggles it.
   - It reads the binds from `hyprctl binds -j`. Every bind in `nook.lua` with a description
     `"group: label"` shows up there, so `nook.lua` is the only list of keys.
@@ -80,7 +81,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - `SRV // HOMELAB`: your hosts with an up/down dot, a latency sparkline and the last ping. `host:port` checks a TCP port instead, for hosts that drop pings.
   - `CAL // NEXT`: the next events from a CalDAV server (Nextcloud works), with a countdown to the first one. The password sits in the keyring, not in a file: `nook-feed cal --setup`.
   - `PROC // TOP`: the five busiest processes (idle ones by ram). Click a row, then click again within 3 s to end it; the session's own processes can't be ended.
-  - Weather place, hosts and calendar are personal, so they live in `~/.config/nook/widgets.conf` (installed once from `config/widgets.example.conf`). A widget with nothing configured hides. `Feeds.qml` polls `bin/nook-feed`.
+  - Weather place, hosts and calendar are personal, so they live in `~/.config/nook/widgets.conf` (installed once from `config/widgets.example.conf`; place and hosts can also be set in the `nook` tab). A widget with nothing configured hides, and so does one switched off in the `nook` tab (it stops polling too). `Feeds.qml` polls `bin/nook-feed`.
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.
 - `Theme.qml` holds the tokens and `Stats.qml` the shared `/proc` numbers.
 

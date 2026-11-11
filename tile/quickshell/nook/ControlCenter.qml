@@ -3,8 +3,10 @@
 //   [ net ]    wifi on/off and networks (NetworkManager), wired links
 //   [ bt ]     bluetooth on/off, scan, devices with connect and battery
 //   [ apps ]   background apps (the tray) as a list, and what's playing
-// Opened from the bar (vol → audio, net/bt → net or bt, tray → apps), SUPER A, or IPC:
-//   qs -c nook ipc call control toggle [audio|net|bt|apps]
+//   [ nook ]   what the bar and the desktop show (Settings.qml), homelab hosts, weather place
+// Opened from the bar (vol → audio, net/bt → net or bt, tray → apps, right-click λ nook → nook),
+// SUPER A, or IPC:
+//   qs -c nook ipc call control toggle [audio|net|bt|apps|nook]
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -26,7 +28,8 @@ Scope {
         { id: "audio", hue: Theme.rose },
         { id: "net",   hue: Theme.blue },
         { id: "bt",    hue: Theme.cyan },
-        { id: "apps",  hue: Theme.amber }
+        { id: "apps",  hue: Theme.amber },
+        { id: "nook",  hue: Theme.red }
     ]
 
     IpcHandler {
@@ -167,6 +170,27 @@ Scope {
                 onClicked: row.actionClicked()
             }
         }
+    }
+    // [x] name  note: a compact on/off switch for the nook tab
+    component Check: Rectangle {
+        id: chk
+        property string name
+        property string note
+        property bool on: true
+        property color hue: Theme.red
+        signal toggled()
+        Layout.fillWidth: true
+        implicitHeight: 22
+        radius: Theme.radiusSm
+        color: chkArea.containsMouse ? Theme.bg300 : "transparent"
+        RowLayout {
+            anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
+            spacing: 6
+            Mono { text: chk.on ? "[x]" : "[ ]"; color: chk.on ? chk.hue : Theme.faint; font.bold: chk.on }
+            Mono { text: chk.name; color: chk.on ? Theme.ink : Theme.muted }
+            Mono { text: chk.note; color: Theme.faint; font.pixelSize: Theme.label; Layout.fillWidth: true }
+        }
+        MouseArea { id: chkArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chk.toggled() }
     }
     // a one-line text field; ⏎ accepts, esc cancels (closes when empty), tab jumps to `next`
     component Field: Rectangle {
@@ -571,6 +595,112 @@ Scope {
                         Mono {
                             text: "click: connect / disconnect · new devices pair and connect (scan first)"
                             color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
+                        }
+                    }
+
+                    // ── NOOK: what the shell shows, homelab hosts, weather place ──
+                    ColumnLayout {
+                        id: nookTab
+                        visible: Ui.controlTab === "nook"
+                        Layout.fillWidth: true
+                        Layout.margins: 14
+                        spacing: 3
+
+                        readonly property var hostRe: /^[A-Za-z0-9][A-Za-z0-9_.-]{0,252}(:\d{1,5})?$/
+                        readonly property var nameRe: /^[A-Za-z0-9][A-Za-z0-9_.-]{0,31}$/
+                        function addHost() {
+                            const n = newName.text.trim(), h = newHost.text.trim();
+                            if (!nookTab.nameRe.test(n)) { Feeds.confError = "name: letters, digits, '.', '_', '-' (no spaces)"; newName.focusIn(); return; }
+                            if (!nookTab.hostRe.test(h)) { Feeds.confError = "host: an address or name, or host:port"; newHost.focusIn(); return; }
+                            Feeds.setConf("srv", n, h);
+                            Settings.set("widget.srv", true);
+                            newName.text = ""; newHost.text = "";
+                            newName.focusIn();
+                        }
+
+                        Label { text: "BAR // MODULES" }
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 2
+                            columnSpacing: 6
+                            rowSpacing: 0
+                            Repeater {
+                                model: Settings.bar
+                                Check {
+                                    required property var modelData
+                                    name: modelData.name; note: modelData.note
+                                    on: Settings.shown(modelData.id)
+                                    hue: Theme.red
+                                    onToggled: Settings.toggle(modelData.id)
+                                }
+                            }
+                        }
+
+                        Label { text: "DESK // WIDGETS" }
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 2
+                            columnSpacing: 6
+                            rowSpacing: 0
+                            Repeater {
+                                model: Settings.widgets.concat(Settings.desk)
+                                Check {
+                                    required property var modelData
+                                    name: modelData.name.toLowerCase(); note: modelData.note
+                                    on: Settings.shown(modelData.id)
+                                    hue: Theme.aqua
+                                    onToggled: Settings.toggle(modelData.id)
+                                }
+                            }
+                        }
+
+                        Label { text: "SRV // HOMELAB · " + (Feeds.conf.srv ?? []).length }
+                        Repeater {
+                            model: Feeds.conf.srv ?? []
+                            Row {
+                                required property var modelData
+                                readonly property var live: (Feeds.srv.hosts ?? []).find(h => h.name === modelData.name) ?? null
+                                name: modelData.name
+                                note: modelData.host + (live ? (live.up ? "  ● " + Math.round(live.ms) + "ms" : "  ● down") : "")
+                                hue: live ? (live.up ? Theme.aqua : Theme.orange) : Theme.ink
+                                action: root.armed === "srv:" + modelData.name ? "sure?" : "remove"
+                                onClicked: { newName.text = modelData.name; newHost.text = modelData.host; newHost.focusIn() }
+                                onActionClicked: { if (root.confirm("srv:" + modelData.name)) Feeds.unsetConf("srv", modelData.name) }
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Field { id: newName; placeholder: "name"; Layout.preferredWidth: 120; Layout.fillWidth: false; next: newHost; onAccepted: newHost.focusIn(); onCancelled: text = "" }
+                            Field { id: newHost; placeholder: "host  or  host:port"; next: newName; onAccepted: nookTab.addHost(); onCancelled: text = "" }
+                            Btn { text: (Feeds.conf.srv ?? []).some(h => h.name === newName.text.trim()) ? "save" : "add"; hue: Theme.aqua; onClicked: nookTab.addHost() }
+                        }
+
+                        Label { text: "WX // PLACE" }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Field {
+                                id: place
+                                text: Feeds.conf.weather?.location ?? ""
+                                placeholder: "city, ~landmark or airport · empty = by IP"
+                                hue: Theme.gold
+                                onAccepted: Feeds.setConf("weather", "location", text.trim())
+                                onCancelled: text = Feeds.conf.weather?.location ?? ""
+                            }
+                            Btn { text: "set"; hue: Theme.gold; onClicked: place.accepted() }
+                        }
+
+                        Mono {
+                            visible: Feeds.confError !== ""
+                            Layout.fillWidth: true
+                            text: "[!!] " + Feeds.confError
+                            color: Theme.orange; font.pixelSize: Theme.small; wrapMode: Text.Wrap
+                        }
+                        Mono {
+                            Layout.fillWidth: true
+                            text: "click: on / off · a host row fills the form · kept in ~/.config/nook/shell.json and " + (Feeds.conf.path ?? "widgets.conf")
+                            color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6; wrapMode: Text.Wrap
                         }
                     }
 

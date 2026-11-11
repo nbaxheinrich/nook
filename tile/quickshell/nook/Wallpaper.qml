@@ -31,6 +31,7 @@ Scope {
             color: Theme.bg000
 
             Canvas {
+                visible: Settings.shown("desk.grid")
                 anchors.fill: parent
                 onWidthChanged: requestPaint()
                 onHeightChanged: requestPaint()
@@ -53,6 +54,7 @@ Scope {
             // NOOK banner bottom-right, above the bar
             Column {
                 id: art
+                visible: Settings.shown("desk.banner")
                 anchors { right: parent.right; bottom: parent.bottom; rightMargin: 56; bottomMargin: 96 }
                 spacing: 0
                 Repeater {

@@ -120,13 +120,15 @@ Scope {
             // left:  start + workspaces stay; the window tag takes the rest (title first, then
             //        the whole tag, go when there's no room)
             // right: cpu/ram goes first, then the tray icons ("bg N" stays)
-            readonly property real half: (width - clockPill.implicitWidth) / 2 - Theme.gap
-            readonly property real tagRoom: half - startPill.implicitWidth - wsPill.implicitWidth - 2 * Theme.gap
+            // Modules switched off in the nook tab (Settings) take no room.
+            function room(p) { return p.visible ? p.implicitWidth + Theme.gap : 0 }
+            readonly property real half: (width - (clockPill.visible ? clockPill.implicitWidth : 0)) / 2 - Theme.gap
+            readonly property real tagRoom: half - room(startPill) - room(wsPill)
             readonly property real tagFixed: 28 + 4 * 10 + lb.implicitWidth + appLbl.implicitWidth + dash.implicitWidth + rb.implicitWidth
             readonly property real titleRoom: Math.min(320, tagRoom - tagFixed)
             readonly property real bgIconsW: SystemTray.items.values.length * (16 + 10)
             readonly property real bgFullW: bgPill.visible ? 28 + bgLbl.implicitWidth + bgIconsW + Theme.gap : 0
-            readonly property real rightCore: kbPill.implicitWidth + netbt.implicitWidth + vol.implicitWidth + powerPill.implicitWidth + 3 * Theme.gap
+            readonly property real rightCore: room(kbPill) + room(netbt) + room(vol) + room(powerPill) - Theme.gap
             readonly property bool showCpu: rightCore + bgFullW + cpuPill.implicitWidth + Theme.gap <= half
             readonly property bool showBgIcons: rightCore + bgFullW <= half
 
@@ -134,13 +136,15 @@ Scope {
                 anchors.fill: parent
                 spacing: Theme.gap
 
-                // ── λ nook: solid red neon, opens the hack menu ──
+                // ── λ nook: solid red neon, opens the hack menu (right-click: the nook tab) ──
                 Pill {
                     id: startPill
+                    visible: Settings.shown("bar.start")
                     color: Theme.red
-                    border.color: Ui.launcherOpen ? Theme.cyan : Theme.red
-                    border.width: Ui.launcherOpen ? 2 : 1
-                    onClicked: root.openMenu()
+                    border.color: Ui.launcherOpen || (Ui.controlOpen && Ui.controlTab === "nook") ? Theme.cyan : Theme.red
+                    border.width: Ui.launcherOpen || (Ui.controlOpen && Ui.controlTab === "nook") ? 2 : 1
+                    // right-click: the nook tab, to pick what the bar and the desktop show
+                    onClicked: m => m.button === Qt.RightButton ? Ui.openControl("nook") : root.openMenu()
                     layer.enabled: true
                     layer.effect: Glow { shadowColor: Theme.red; shadowBlur: 0.8; shadowOpacity: 0.7 }
                     Text { text: "λ"; color: Theme.onAccent; font.family: Theme.pixel; font.pixelSize: 26 }
@@ -150,6 +154,7 @@ Scope {
                 // ── workspaces 1–9: active = cyan bar, occupied = muted, empty = faint, urgent = orange ──
                 Pill {
                     id: wsPill
+                    visible: Settings.shown("bar.workspaces")
                     onScrolled: w => root.dispatch(`hl.dsp.focus({ workspace = "${w.angleDelta.y < 0 ? "e+1" : "e-1"}" })`)
                     Repeater {
                         model: 9
@@ -187,7 +192,7 @@ Scope {
                 // ── focused window as a tag ──
                 Pill {
                     id: titlePill
-                    visible: (ToplevelManager.activeToplevel?.title ?? "") !== ""
+                    visible: Settings.shown("bar.title") && (ToplevelManager.activeToplevel?.title ?? "") !== ""
                              && bar.tagRoom >= bar.tagFixed - dash.implicitWidth - 10
                     Label { id: lb; text: "["; color: Theme.faint }
                     Label {
@@ -212,7 +217,7 @@ Scope {
                 // ── cpu sparkline + ram (first to go when the right side is full) ──
                 Pill {
                     id: cpuPill
-                    visible: bar.showCpu
+                    visible: Settings.shown("bar.cpu") && bar.showCpu
                     Label { text: "cpu" }
                     Label { text: Stats.spark(Stats.cpuHist, 100); color: Theme.amber; font.pixelSize: 13 }
                     Label { text: Stats.cpu + "%"; color: Theme.amber }
@@ -223,7 +228,7 @@ Scope {
                 // ── keyboard layout: click (or SUPER K) switches eu ⇄ de ──
                 Pill {
                     id: kbPill
-                    visible: root.kb !== ""
+                    visible: Settings.shown("bar.kb") && root.kb !== ""
                     onClicked: root.switchKb()
                     onScrolled: root.switchKb()
                     Label { text: "kb" }
@@ -233,6 +238,7 @@ Scope {
                 // ── net · bt: wifi signal and bluetooth; click → control center ──
                 Pill {
                     id: netbt
+                    visible: Settings.shown("bar.netbt")
                     readonly property var wifi: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
                     readonly property var wnet: wifi?.networks?.values.find(n => n.connected) ?? null
                     readonly property var bta: Bluetooth.defaultAdapter
@@ -254,6 +260,7 @@ Scope {
                 // ── volume: click → audio in the control center, right-click = mute, scroll = ±5% ──
                 Pill {
                     id: vol
+                    visible: Settings.shown("bar.vol")
                     readonly property var sink: Pipewire.defaultAudioSink
                     readonly property real v: sink?.audio?.volume ?? 0
                     readonly property bool muted: sink?.audio?.muted ?? false
@@ -280,7 +287,7 @@ Scope {
                 // ── background apps: count + icons; the pill opens the list, an icon its app ──
                 Pill {
                     id: bgPill
-                    visible: SystemTray.items.values.length > 0
+                    visible: Settings.shown("bar.bg") && SystemTray.items.values.length > 0
                     hot: Ui.controlOpen && Ui.controlTab === "apps"
                     onClicked: Ui.openControl("apps")
                     Label { id: bgLbl; text: "bg " + SystemTray.items.values.length; color: Theme.amber }
@@ -309,6 +316,7 @@ Scope {
                 // ── power: solid red like λ nook; opens the menu (power buttons), right-click locks ──
                 Pill {
                     id: powerPill
+                    visible: Settings.shown("bar.power")
                     color: Theme.red
                     border.color: Ui.launcherOpen ? Theme.cyan : Theme.red
                     border.width: Ui.launcherOpen ? 2 : 1
@@ -324,6 +332,7 @@ Scope {
             // ── clock: VT323 red, centred on the screen (not between the modules) ──
             Pill {
                 id: clockPill
+                visible: Settings.shown("bar.clock")
                 anchors.centerIn: parent
                 Text {
                     id: hhmm

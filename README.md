@@ -32,13 +32,30 @@ git clone https://github.com/nookware/nook.git && cd nook
 `./nook` opens a menu (fzf):
 
 - `space` turns a part on or off.
-- `⏎` opens its options: the palette for that part, or for the shell, which tools and which prompt.
+- `⏎` opens its options. For **plasma** and **tile**: the palette, every piece on its own (tile:
+  bar and launcher, lock screen, look, terminal, notifications, tools, browser tabs, session
+  fixes; plasma: taskbar, widgets, shortcuts, icons, cursor) and every package on its own, each
+  with what it is for and whether it is installed already. For the shell: which tools and which prompt.
 - **palette** sets one palette for every part.
 - The pane on the right previews whatever is highlighted: the palette's colours, a bar, a
   prompt and icons, a mock-up of the desktop, what a shell tool does.
-- `▶ install` shows the plan and asks before it runs anything.
+- `▶ install` shows the plan and asks before it runs anything. When it's done it offers the setup.
+- **setup** (`./nook setup`) walks you through what nook can't guess, one question at a time,
+  and every step can be skipped (`s`) or run alone later (`./nook setup screens`):
+  - `screens`: order left to right, resolution and refresh rate, which way up, scale. Written to
+    `~/.config/hypr/machine.lua`.
+  - `keyboard`: the layouts (checked against the system's xkb list).
+  - `widgets`: weather place, homelab hosts, the CalDAV calendar and its password in the keyring.
+  - `shell`: zsh as your login shell.
+  - `browser`: the default browser, and loading the nook tabs extension.
+  - `session`: Hyprland preselected on the login screen.
+  - `wled`: finds WLED controllers on your network and adds them to `config/wled.conf`.
 
-Your choices are remembered for next time.
+  Before a file changes you see the difference and confirm it, and the old one is backed up to
+  `~/.local/state/nook/`.
+
+Your choices are remembered for next time. The package list with each distro's names is
+`lib/packages.tsv`.
 
 Without the TUI:
 
@@ -46,6 +63,8 @@ Without the TUI:
 ./nook install --plasma --tile --shell --login --palette=ramen      # everything in Ramen Sign
 ./nook install --tile --tile-palette=cocoa --no-deps                # nook-tile in cocoa, no sudo
 ./nook install --shell=zsh,omz,prompt-starship,zoxide,eza,bat       # just these shell parts
+./nook install --tile-parts=hypr,shell,lock --packages=hyprland,quickshell,hyprlock   # exactly these
+./nook setup screens keyboard   # only these setup steps
 ./nook palette cocoa         # switch every installed part to cocoa
 ./nook uninstall             # Plasma back to your pre-nook backup, login theme removed
 ```

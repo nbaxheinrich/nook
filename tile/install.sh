@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 # nook-tile: Hyprland + Quickshell, next to (not instead of) Plasma.
-# usage: tile/install.sh [--palette=ramen|cocoa] [--no-deps] [--no-login]
+# usage: tile/install.sh [--palette=ramen|cocoa] [--parts=a,b,…] [--packages=a,b,…] [--no-deps] [--no-login]
 #   --palette   the colours (palettes/*.json); ramen (Ramen Sign) is what tile/ is drawn in.
 #               Remembered in ~/.local/state/nook/tile-palette.
+#   --parts     what to set up (default: all; hypr is always in):
+#               hypr     Hyprland's config (nook.lua, machine.lua)
+#               shell    Quickshell: bar, launcher, control center, desktop widgets
+#               lock     hyprlock + hypridle
+#               look     cursor, icons, fonts, Qt apps in the palette
+#               term     kitty (+ a TERM that ssh hosts know)
+#               notify   mako
+#               tools    nook-shot, nook-display, nook-gamemode
+#               browser  nook-tabs: your browser tabs in the launcher
+#               session  systemd target, screen-sharing fixes, Plasma's look back after a tile session
+#   --packages  exactly these packages (ids from lib/packages.tsv; default: the picked parts' usual ones)
 #   --no-deps   skip everything that needs sudo (packages, login screen); only link the configs
 #   --no-login  leave the login screen alone (by default it gets the Ramen Sign look too,
 #               via shared/login/login.sh; ./nook passes this and does the login itself)
@@ -13,72 +24,78 @@
 # Nothing in the Plasma session is touched. Pick "Hyprland" on the login screen.
 set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/lib.sh"
+. "$REPO/lib/pkg.sh"
 TILE="$REPO/tile"
 CFG="$XDG_CONFIG_HOME"
 BACKUP_DIR="$NOOK_STATE/tile-backup-$(date +%Y%m%d-%H%M%S)"
+ALL_PARTS="hypr shell lock look term notify tools browser session"
 
-deps=1 login=1
+deps=1 login=1 parts=$ALL_PARTS packages=""
 palette=$(cat "$NOOK_STATE/tile-palette" 2>/dev/null || echo ramen)
 for a in "$@"; do
   case "$a" in
     --palette=*) palette=${a#--palette=} ;;
     --ramen) palette=ramen ;; --cocoa|--pastel) palette=cocoa ;;
+    --parts=*) parts=$(tr ',' ' ' <<<"${a#--parts=}") ;;
+    --packages=*) packages=$(tr ',' ' ' <<<"${a#--packages=}"); [ -n "$packages" ] || packages=" " ;;
     --no-deps) deps=0 ;;
     --no-login|--no-sddm) login=0 ;;
-    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     *) die "unknown option $a" ;;
   esac
 done
+for p in $parts; do [[ " $ALL_PARTS " == *" $p "* ]] || die "unknown part $p (have: $ALL_PARTS)"; done
+parts="hypr $(tr ' ' '\n' <<<"$parts" | grep -vx hypr | paste -sd' ')"
+on() { [[ " $parts " == *" $1 "* ]]; }
+[ -n "$packages" ] || packages=$(pkg_default $(for p in $parts; do echo "tile.$p"; done) | paste -sd' ')
+pkg_on() { [[ " $packages " == *" $1 "* ]]; }
 
 # ── packages ────────────────────────────────────────────────────────────────
 # nook.lua is Hyprland's Lua config, so Hyprland must be 0.57 or newer; distro packages are
-# usually older, hence the COPR / PPA. Quickshell needs Qt ≥ 6.6 (the launcher's shadow: 6.9).
+# usually older, hence the COPR / PPA, enabled only when something from them is picked.
+# Quickshell needs Qt ≥ 6.6 (the launcher's shadow: 6.9).
 QS_TAG=v0.3.2                                   # Quickshell release built from source on Ubuntu
 OS_RELEASE=${NOOK_OS_RELEASE:-/etc/os-release}   # overridable for testing
 os_id=$(. "$OS_RELEASE"; echo "${ID:-}")
 os_ver=$(. "$OS_RELEASE"; echo "${VERSION_ID:-0}")
 os_like=$(. "$OS_RELEASE"; echo "${ID_LIKE:-}")
+hypr_stack() { for i in hyprland portal polkit hyprlock hypridle; do pkg_on "$i" && return 0; done; return 1; }
 
 copr_enable() { dnf copr list 2>/dev/null | grep -q "$1" || sudo dnf copr enable -y "$1"; }
 
 deps_fedora() {
+  if hypr_stack; then
+    [ "${os_ver%%.*}" -ge 44 ] 2>/dev/null || die "Fedora $os_ver: Hyprland 0.57 is only built for Fedora 44 and newer"
+    copr_enable sdegler/hyprland
+  fi
   # Nobara 44 ships quickshell itself; plain Fedora gets it from errornointernet/quickshell
-  [ "${os_ver%%.*}" -ge 44 ] 2>/dev/null || die "Fedora $os_ver: Hyprland 0.57 is only built for Fedora 44 and newer"
-  copr_enable sdegler/hyprland
-  [ "$os_id" = nobara ] || copr_enable errornointernet/quickshell
-  sudo dnf install -y \
-    hyprland hyprlock hypridle hyprpolkitagent xdg-desktop-portal-hyprland \
-    quickshell kitty mako qt6ct \
-    fzf figlet lolcat fastfetch btop playerctl python3 curl \
-    grim slurp wl-clipboard jetbrains-mono-fonts-all
-  # the prompt; optional (Nobara/Terra have it): without it zsh keeps the recoloured nook prompt
-  sudo dnf install -y starship 2>/dev/null || warn "no starship package: the terminal keeps the oh-my-zsh prompt"
+  pkg_on quickshell && [ "$os_id" != nobara ] && copr_enable errornointernet/quickshell
+  pkg_install $packages
 }
 
 deps_ubuntu() {
   # Checked by Qt version, not release number, so Ubuntu-based distros (Mint, Pop!_OS, Kubuntu …)
   # work the same: Quickshell needs Qt 6.6+, the launcher's shadow 6.9+. 24.04 has 6.4, 26.04 6.10.
   sudo apt-get update
-  local qt
-  qt=$(apt-cache policy qt6-base-dev 2>/dev/null | awk '/Candidate:/{print $2}')
-  dpkg --compare-versions "${qt:-0}" ge 6.9 \
-    || die "Qt ${qt:-not found} here; nook-tile needs Qt 6.9+ (Ubuntu 26.04 or newer, or a distro based on it)"
-  sudo apt-get install -y software-properties-common
-  grep -rqs cppiber/hyprland /etc/apt/sources.list.d/ || sudo add-apt-repository -y ppa:cppiber/hyprland
-  sudo apt-get update
-  sudo apt-get install -y \
-    hyprland hyprlock hypridle hyprpolkitagent xdg-desktop-portal-hyprland \
-    kitty mako-notifier qt6ct \
-    fzf figlet lolcat fastfetch btop playerctl python3 curl \
-    grim slurp wl-clipboard fonts-jetbrains-mono \
-    qml6-module-qtquick qml6-module-qtqml qml6-module-qtqml-models qml6-module-qtqml-workerscript \
-    qml6-module-qtquick-effects qml6-module-qtquick-layouts qml6-module-qtquick-window \
-    qml6-module-qtquick-templates qml6-module-qtquick-controls libqt6svg6 qt6-wayland
-  sudo apt-get install -y starship || warn "no starship package: the terminal keeps the oh-my-zsh prompt"
-  if apt-cache policy quickshell 2>/dev/null | grep -q 'Candidate: [0-9]'; then
-    sudo apt-get install -y quickshell                  # in the archive from Ubuntu 26.10 on
-  elif ! command -v qs >/dev/null; then
-    build_quickshell
+  if pkg_on quickshell; then
+    local qt
+    qt=$(apt-cache policy qt6-base-dev 2>/dev/null | awk '/Candidate:/{print $2}')
+    dpkg --compare-versions "${qt:-0}" ge 6.9 \
+      || die "Qt ${qt:-not found} here; Quickshell needs Qt 6.9+ (Ubuntu 26.04 or newer, or a distro based on it)"
+  fi
+  if hypr_stack; then
+    sudo apt-get install -y software-properties-common
+    grep -rqs cppiber/hyprland /etc/apt/sources.list.d/ || sudo add-apt-repository -y ppa:cppiber/hyprland
+    sudo apt-get update
+  fi
+  local special
+  special=$(pkg_install $packages)
+  if [[ $special == *quickshell* ]]; then
+    if apt-cache policy quickshell 2>/dev/null | grep -q 'Candidate: [0-9]'; then
+      sudo apt-get install -y quickshell                  # in the archive from Ubuntu 26.10 on
+    elif ! command -v qs >/dev/null; then
+      build_quickshell
+    fi
   fi
 }
 
@@ -103,23 +120,15 @@ build_quickshell() {
   ok "quickshell $QS_TAG → /usr/local"
 }
 
-if [ "$deps" = 1 ]; then
-  step "packages"
+if [ "$deps" = 1 ] && [ -n "${packages// /}" ]; then
+  step "packages: $packages"
   case " $os_id $os_like " in
     *" fedora "*|*" nobara "*) deps_fedora ;;
     *" ubuntu "*)              deps_ubuntu ;;
     *" debian "*) die "Debian itself is not supported (no Hyprland 0.57 packages); Ubuntu 26.04+ is" ;;
     *) die "supported: Fedora 44+, Nobara 44+, Ubuntu 26.04+. Use --no-deps and install Hyprland ≥0.57 + Quickshell by hand" ;;
   esac
-  ok "hyprland, quickshell, kitty, mako and tools"
-
-  fontdir="$XDG_DATA_HOME/fonts/nook"
-  if ! fc-list | grep -q VT323; then
-    mkdir -p "$fontdir"
-    curl -fsSL -o "$fontdir/VT323-Regular.ttf" \
-      https://raw.githubusercontent.com/google/fonts/main/ofl/vt323/VT323-Regular.ttf \
-      && fc-cache -f "$fontdir" >/dev/null && ok "VT323" || warn "could not fetch VT323"
-  fi
+  ok "packages in"
 fi
 
 # ── palette: ramen is what tile/ is drawn in; anything else is a recoloured copy ──
@@ -144,14 +153,12 @@ link() {
   ln -sfn "$src" "$dest"
 }
 
-# ── hyprland ────────────────────────────────────────────────────────────────
+# ── hypr: always ────────────────────────────────────────────────────────────
 step "hyprland"
 link "$TSRC/hypr/nook.lua"       "$CFG/hypr/nook.lua"
-link "$TSRC/hypr/hyprlock.conf"  "$CFG/hypr/hyprlock.conf"
-link "$TSRC/hypr/hypridle.conf"  "$CFG/hypr/hypridle.conf"
 if [ ! -e "$CFG/hypr/machine.lua" ]; then
   install -Dm644 "$TILE/hypr/machine.lua" "$CFG/hypr/machine.lua"
-  ok "machine.lua written (monitors, keyboard): edit ~/.config/hypr/machine.lua"
+  ok "machine.lua written (monitors, keyboard): ./nook setup fits it to this machine"
 else
   ok "machine.lua kept"
 fi
@@ -159,13 +166,36 @@ if ! grep -qs 'require("nook")' "$CFG/hypr/hyprland.lua"; then
   backup "$CFG/hypr/hyprland.lua"
   install -Dm644 "$TILE/hypr/hyprland.lua" "$CFG/hypr/hyprland.lua"
 fi
-ok "~/.config/hypr → nook.lua, machine.lua, hyprlock, hypridle"
+ok "~/.config/hypr → nook.lua, machine.lua"
 
-# ── quickshell ──────────────────────────────────────────────────────────────
-step "quickshell"
-link "$TSRC/quickshell/nook" "$CFG/quickshell/nook"
-ok "~/.config/quickshell/nook (run: qs -c nook)"
+# ── shell: Quickshell ───────────────────────────────────────────────────────
+if on shell; then
+  step "quickshell"
+  link "$TSRC/quickshell/nook" "$CFG/quickshell/nook"
+  link "$TILE/bin/nook-feed"           "$HOME/.local/bin/nook-feed"
+  link "$TILE/bin/nook-wired"          "$HOME/.local/bin/nook-wired"
+  link "$TILE/bin/nook-autostart"      "$HOME/.local/bin/nook-autostart"
+  # widget settings (hosts, CalDAV, weather place) are personal: copied once, never overwritten
+  if [ ! -e "$CFG/nook/widgets.conf" ]; then
+    install -Dm644 "$TILE/config/widgets.example.conf" "$CFG/nook/widgets.conf"
+    ok "widgets.conf written (weather, servers, calendar): ./nook setup widgets"
+  else
+    ok "widgets.conf kept"
+  fi
+  ok "~/.config/quickshell/nook (run: qs -c nook)"
+fi
 
+# ── lock: hyprlock + hypridle ───────────────────────────────────────────────
+if on lock; then
+  step "lock"
+  link "$TSRC/hypr/hyprlock.conf"  "$CFG/hypr/hyprlock.conf"
+  link "$TSRC/hypr/hypridle.conf"  "$CFG/hypr/hypridle.conf"
+  link "$TILE/bin/nook-lockclock"  "$HOME/.local/bin/nook-lockclock"
+  ok "hyprlock, hypridle"
+fi
+
+# ── look: cursor, icons, Qt apps ────────────────────────────────────────────
+if on look; then
 # ── old-school pixel cursors (generated, no extra packages) ──
 step "cursor"
 python3 -I "$REPO/shared/cursors/pixelcursors.py" "$XDG_DATA_HOME/icons/Nook-Pixel" >/dev/null && ok "Nook-Pixel cursor theme"
@@ -230,50 +260,66 @@ underline_shortcut=1
 EOF
 ok "qt6ct → $palette ($(basename "$scheme")), $style, ${icons:-default} icons, $(cut -d, -f1-2 <<<"$font")"
 
-# ── terminal, notifications, menu, fastfetch, prompt ────────────────────────
-step "kitty, mako, session target"
-link "$TSRC/kitty/nook.conf" "$CFG/kitty/nook.conf"
-touch "$CFG/kitty/kitty.conf"
-grep -q '^include nook.conf' "$CFG/kitty/kitty.conf" || printf '\ninclude nook.conf\n' >> "$CFG/kitty/kitty.conf"
-if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; then
-  printf 'shell %s\n' "$zsh_bin" >> "$CFG/kitty/kitty.conf"
 fi
-# ssh from kitty: a TERM remote machines know. Copied, not linked: ssh refuses config files
-# others can write to, and the checkout is group-writable. `Match all` ends any Host block the
-# Include would otherwise fall into, and keeping it last lets the user's own blocks win.
-install -Dm600 "$TILE/ssh/nook.conf" "$HOME/.ssh/nook.conf"
-chmod 700 "$HOME/.ssh"
-touch "$HOME/.ssh/config" && chmod 600 "$HOME/.ssh/config"
-grep -q '^Include nook.conf' "$HOME/.ssh/config" || printf '\nMatch all\nInclude nook.conf\n' >> "$HOME/.ssh/config"
-link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
-link "$TILE/bin/nook-session-look"   "$HOME/.local/bin/nook-session-look"
-link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
-link "$TILE/bin/nook-display"        "$HOME/.local/bin/nook-display"
-link "$TILE/bin/nook-lockclock"      "$HOME/.local/bin/nook-lockclock"
-link "$TILE/bin/nook-feed"           "$HOME/.local/bin/nook-feed"
-link "$TILE/bin/nook-wired"          "$HOME/.local/bin/nook-wired"
-link "$TILE/bin/nook-autostart"      "$HOME/.local/bin/nook-autostart"
-# widget settings (hosts, CalDAV, weather place) are personal: copied once, never overwritten
-if [ ! -e "$CFG/nook/widgets.conf" ]; then
-  install -Dm644 "$TILE/config/widgets.example.conf" "$CFG/nook/widgets.conf"
-  ok "widgets.conf written (weather, servers, calendar): edit ~/.config/nook/widgets.conf"
-else
-  ok "widgets.conf kept"
+
+# ── term: kitty, and a TERM ssh hosts know ──────────────────────────────────
+if on term; then
+  step "kitty"
+  link "$TSRC/kitty/nook.conf" "$CFG/kitty/nook.conf"
+  touch "$CFG/kitty/kitty.conf"
+  grep -q '^include nook.conf' "$CFG/kitty/kitty.conf" || printf '\ninclude nook.conf\n' >> "$CFG/kitty/kitty.conf"
+  if zsh_bin=$(command -v zsh) && ! grep -q '^shell ' "$CFG/kitty/kitty.conf"; then
+    printf 'shell %s\n' "$zsh_bin" >> "$CFG/kitty/kitty.conf"
+  fi
+  # ssh from kitty: a TERM remote machines know. Copied, not linked: ssh refuses config files
+  # others can write to, and the checkout is group-writable. `Match all` ends any Host block the
+  # Include would otherwise fall into, and keeping it last lets the user's own blocks win.
+  install -Dm600 "$TILE/ssh/nook.conf" "$HOME/.ssh/nook.conf"
+  chmod 700 "$HOME/.ssh"
+  touch "$HOME/.ssh/config" && chmod 600 "$HOME/.ssh/config"
+  grep -q '^Include nook.conf' "$HOME/.ssh/config" || printf '\nMatch all\nInclude nook.conf\n' >> "$HOME/.ssh/config"
+  ok "kitty (+ ssh TERM; the shell and prompt: ./nook → shell)"
 fi
-# KDE's xwaylandvideobridge (autostarted for X11 apps' screen sharing) fights Hyprland's portal:
-# it opens shares by itself and loops on formats. Keep it to Plasma.
-if [ -f /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop ]; then
+
+# ── notify: mako ────────────────────────────────────────────────────────────
+if on notify; then
+  link "$TSRC/mako/config" "$CFG/mako/config"
+  ok "mako ($palette)"
+fi
+
+# ── tools: screenshots, screens, game mode ──────────────────────────────────
+if on tools; then
+  link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
+  link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
+  link "$TILE/bin/nook-display"        "$HOME/.local/bin/nook-display"
+  ok "nook-shot, nook-display, nook-gamemode"
+fi
+
+# ── browser: tabs in the launcher ───────────────────────────────────────────
+if on browser; then
+  link "$TILE/bin/nook-tabs"           "$HOME/.local/bin/nook-tabs"
+  "$TILE/bin/nook-tabs" install >/dev/null   # the browser may start it for the nook tabs extension
+  ok "nook-tabs (load the extension: ./nook setup browser)"
+fi
+
+# ── session: systemd, screen sharing, Plasma's look back ────────────────────
+if on session; then
+  step "session"
+  link "$TILE/bin/nook-session-look"   "$HOME/.local/bin/nook-session-look"
+  # KDE's xwaylandvideobridge (autostarted for X11 apps' screen sharing) fights Hyprland's portal:
+  # it opens shares by itself and loops on formats. Keep it to Plasma.
+  if [ -f /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop ]; then
+    mkdir -p "$CFG/autostart"
+    grep -v '^NotShowIn=' /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop > "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
+    echo 'NotShowIn=Hyprland;' >> "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
+  fi
+  # Electron apps from Flatpak (Discord): native Wayland, so screen sharing goes through the portal
+  for app in com.discordapp.Discord dev.vencord.Vesktop; do
+    flatpak info "$app" >/dev/null 2>&1 && flatpak override --user --env=ELECTRON_OZONE_PLATFORM_HINT=auto "$app"
+  done
+  # Plasma puts its own icon theme back when it starts (KDE apps read it from the shared kdeglobals)
   mkdir -p "$CFG/autostart"
-  grep -v '^NotShowIn=' /etc/xdg/autostart/org.kde.xwaylandvideobridge.desktop > "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
-  echo 'NotShowIn=Hyprland;' >> "$CFG/autostart/org.kde.xwaylandvideobridge.desktop"
-fi
-# Electron apps from Flatpak (Discord): native Wayland, so screen sharing goes through the portal
-for app in com.discordapp.Discord dev.vencord.Vesktop; do
-  flatpak info "$app" >/dev/null 2>&1 && flatpak override --user --env=ELECTRON_OZONE_PLATFORM_HINT=auto "$app"
-done
-# Plasma puts its own icon theme back when it starts (KDE apps read it from the shared kdeglobals)
-mkdir -p "$CFG/autostart"
-cat > "$CFG/autostart/nook-session-look.desktop" <<DESKTOP
+  cat > "$CFG/autostart/nook-session-look.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Nook session look
@@ -283,11 +329,11 @@ NoDisplay=true
 OnlyShowIn=KDE;
 X-KDE-autostart-phase=1
 DESKTOP
-link "$TSRC/mako/config"            "$CFG/mako/config"
-# graphical-session.target for the portal (Hyprland without uwsm does not start it)
-link "$TSRC/systemd/hyprland-session.target" "$CFG/systemd/user/hyprland-session.target"
-systemctl --user daemon-reload 2>/dev/null || true
-ok "kitty (+ ssh TERM), mako ($palette), hyprland-session.target (the shell and prompt: ./nook → shell)"
+  # graphical-session.target for the portal (Hyprland without uwsm does not start it)
+  link "$TSRC/systemd/hyprland-session.target" "$CFG/systemd/user/hyprland-session.target"
+  systemctl --user daemon-reload 2>/dev/null || true
+  ok "hyprland-session.target, screen sharing, Plasma's icons after a tile session"
+fi
 
 [ -d "${BACKUP_DIR}" ] && ok "replaced files backed up to ${BACKUP_DIR/#$HOME/~}"
 

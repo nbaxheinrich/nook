@@ -1,0 +1,225 @@
+#!/usr/bin/python3 -I
+"""nook-wired — wired NetworkManager profiles for the control center's net tab.
+
+  nook-wired list               devices and profiles as one JSON object
+  nook-wired up UUID [DEVICE]   activate a profile; a profile bound to a MAC address or an
+                                interface name goes to that adapter, any other to DEVICE
+  nook-wired down UUID          deactivate a profile
+
+Container links (veth*) and unmanaged devices are left out. Errors go to stderr as one line,
+with exit code 1, so the control center can show them.
+Only the Python standard library is used.
+"""
+import json
+import logging
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+logger = logging.getLogger("nook-wired")
+
+UUID_PATTERN = re.compile(r"^[0-9a-fA-F-]{36}$")
+DEVICE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,15}$")
+NMCLI_TIMEOUT_SECONDS = 20
+PROFILE_FIELDS = ("connection.id", "connection.interface-name", "802-3-ethernet.mac-address", "ipv4.method", "ipv4.addresses")
+
+
+class WiredError(Exception):
+    """A request nmcli can't or won't carry out."""
+
+
+def run_nmcli(arguments: list[str]) -> str:
+    """Run nmcli and return its output.
+
+    Args:
+        arguments: Arguments after `nmcli`.
+
+    Returns:
+        Standard output.
+
+    Raises:
+        WiredError: When nmcli fails or times out.
+    """
+    try:
+        result = subprocess.run(["nmcli", *arguments], capture_output=True, text=True, timeout=NMCLI_TIMEOUT_SECONDS, check=False)
+    except subprocess.TimeoutExpired as error:
+        raise WiredError("nmcli took too long") from error
+    if result.returncode != 0:
+        message = result.stderr.strip().splitlines()
+        raise WiredError(message[-1] if message else f"nmcli failed ({result.returncode})")
+    return result.stdout
+
+
+def split_terse(line: str) -> list[str]:
+    """Split one `nmcli -t` line at unescaped colons.
+
+    Args:
+        line: A line of terse nmcli output.
+
+    Returns:
+        The fields, unescaped.
+    """
+    fields = re.split(r"(?<!\\):", line)
+    return [field.replace("\\:", ":").replace("\\\\", "\\") for field in fields]
+
+
+def is_container_link(name: str) -> bool:
+    """Tell whether a device or profile belongs to a container (docker, podman).
+
+    Args:
+        name: Device or profile name.
+
+    Returns:
+        True for veth links.
+    """
+    return name.startswith("veth")
+
+
+def read_mac_address(device: str) -> str:
+    """Read a device's MAC address from sysfs.
+
+    Args:
+        device: Interface name.
+
+    Returns:
+        The address in upper case, or an empty string.
+    """
+    try:
+        return Path("/sys/class/net", device, "address").read_text(encoding="utf-8").strip().upper()
+    except OSError:
+        return ""
+
+
+def list_devices() -> list[dict]:
+    """List the wired devices NetworkManager manages.
+
+    Returns:
+        One dict per device: dev, state, profile, mac, cable.
+    """
+    devices = []
+    for line in run_nmcli(["-t", "-f", "TYPE,DEVICE,STATE,CONNECTION", "device"]).splitlines():
+        fields = split_terse(line)
+        if len(fields) < 4 or fields[0] != "ethernet" or is_container_link(fields[1]) or fields[2] == "unmanaged":
+            continue
+        devices.append({
+            "dev": fields[1],
+            "state": fields[2],
+            "profile": fields[3],
+            "mac": read_mac_address(fields[1]),
+            "cable": fields[2] != "unavailable",
+        })
+    return devices
+
+
+def list_profiles(devices: list[dict]) -> list[dict]:
+    """List the wired profiles, each with the adapter it is bound to.
+
+    Args:
+        devices: Output of `list_devices`.
+
+    Returns:
+        One dict per profile: uuid, name, active (device or ""), bound (device, "missing" or ""),
+        method, address.
+    """
+    by_mac = {}
+    for device in sorted(devices, key=lambda entry: entry["cable"]):
+        if device["mac"]:
+            by_mac[device["mac"]] = device["dev"]
+    known = {device["dev"] for device in devices}
+    profiles = []
+    for line in run_nmcli(["-t", "-f", "UUID,TYPE,DEVICE", "connection", "show"]).splitlines():
+        fields = split_terse(line)
+        if len(fields) < 3 or fields[1] != "802-3-ethernet" or is_container_link(fields[2]):
+            continue
+        values = run_nmcli(["-g", ",".join(PROFILE_FIELDS), "connection", "show", fields[0]]).split("\n")
+        values = [value.replace("\\:", ":") for value in values] + [""] * len(PROFILE_FIELDS)
+        name, interface, mac, method, address = values[: len(PROFILE_FIELDS)]
+        if is_container_link(interface) or is_container_link(name):
+            continue
+        bound = ""
+        if mac:
+            bound = by_mac.get(mac.upper(), "missing")
+        elif interface:
+            bound = interface if interface in known else "missing"
+        profiles.append({
+            "uuid": fields[0],
+            "name": name,
+            "active": fields[2],
+            "bound": bound,
+            "method": method,
+            "address": address.split(",")[0].strip(),
+        })
+    profiles.sort(key=lambda profile: profile["name"].lower())
+    return profiles
+
+
+def profile_up(uuid: str, device: str | None) -> None:
+    """Activate a profile on its bound adapter, or on the given one.
+
+    Args:
+        uuid: Profile UUID.
+        device: Adapter for profiles not bound to one.
+
+    Raises:
+        WiredError: On bad input, a missing adapter, or an nmcli failure.
+    """
+    devices = list_devices()
+    profile = next((profile for profile in list_profiles(devices) if profile["uuid"] == uuid), None)
+    if profile is None:
+        raise WiredError("no such wired profile")
+    if profile["bound"] == "missing":
+        raise WiredError(f"{profile['name']}: its adapter isn't plugged in")
+    target = profile["bound"] or device
+    if not target:
+        raise WiredError("pick an adapter first")
+    if not DEVICE_PATTERN.match(target) or target not in {entry["dev"] for entry in devices}:
+        raise WiredError(f"no wired device {target}")
+    run_nmcli(["connection", "up", "uuid", uuid, "ifname", target])
+
+
+def profile_down(uuid: str) -> None:
+    """Deactivate a profile.
+
+    Args:
+        uuid: Profile UUID.
+
+    Raises:
+        WiredError: When nmcli fails.
+    """
+    run_nmcli(["connection", "down", "uuid", uuid])
+
+
+def main(arguments: list[str]) -> int:
+    """Dispatch the command line.
+
+    Args:
+        arguments: Command line without the program name.
+
+    Returns:
+        Exit code.
+    """
+    logging.basicConfig(level=logging.WARNING, format="nook-wired: %(message)s")
+    command = arguments[0] if arguments else ""
+    try:
+        if command == "list" and len(arguments) == 1:
+            devices = list_devices()
+            print(json.dumps({"devices": devices, "profiles": list_profiles(devices)}))
+        elif command in ("up", "down") and len(arguments) in (2, 3) and UUID_PATTERN.match(arguments[1]):
+            if command == "up":
+                profile_up(arguments[1], arguments[2] if len(arguments) == 3 else None)
+            elif len(arguments) == 2:
+                profile_down(arguments[1])
+            else:
+                raise WiredError("down takes only a UUID")
+        else:
+            logger.error("usage: nook-wired list | up UUID [DEVICE] | down UUID")
+            return 2
+    except WiredError as error:
+        logger.error("%s", error)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

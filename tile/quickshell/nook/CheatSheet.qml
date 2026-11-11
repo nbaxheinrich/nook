@@ -14,8 +14,9 @@ Scope {
     readonly property bool shown: Settings.shown("desk.cheatsheet")
     property var groups: []
 
-    readonly property var order: ["apps", "windows", "workspaces", "system"]
-    readonly property var hues: ({ apps: Theme.amber, windows: Theme.cyan, workspaces: Theme.blue, system: Theme.red })
+    // two columns, filled row by row: apps | settings, windows | workspaces, system
+    readonly property var order: ["apps", "settings", "windows", "workspaces", "system"]
+    readonly property var hues: ({ apps: Theme.amber, settings: Theme.aqua, windows: Theme.cyan, workspaces: Theme.blue, system: Theme.red })
 
     IpcHandler {
         target: "cheatsheet"

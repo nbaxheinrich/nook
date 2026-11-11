@@ -14,12 +14,8 @@ Singleton {
         { id: "bar.start",      name: "λ nook",     note: "menu button" },
         { id: "bar.workspaces", name: "workspaces", note: "1–9 dots" },
         { id: "bar.title",      name: "window",     note: "[ app — title ]" },
-        { id: "bar.clock",      name: "clock",      note: "time and date, centre" },
+        { id: "bar.clock",      name: "clock",      note: "kb, battery; opens control" },
         { id: "bar.cpu",        name: "cpu · ram",  note: "sparkline" },
-        { id: "bar.kb",         name: "keyboard",   note: "kb eu / de" },
-        { id: "bar.netbt",      name: "net · bt",   note: "wifi and bluetooth" },
-        { id: "bar.vol",        name: "volume",     note: "and battery" },
-        { id: "bar.bg",         name: "background", note: "tray apps" },
         { id: "bar.power",      name: "power",      note: "⏻" }
     ]
     readonly property var widgets: [

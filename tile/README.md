@@ -50,10 +50,8 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - `λ nook` in cream opens the menu; right-click opens the control center's `nook` tab.
   - Workspaces 1–9 as dots: cyan bar = active, grey = occupied, red = urgent. Click or scroll.
   - The focused window as a `[ app — title ]` tag.
-  - A VT323 clock in orange.
+  - The **clock pill**, on the right before `⏻`, is the overview and the control center's button. It shows a glowing dot for the keyboard layout (aqua = EurKEY, gold = German; click the dot to switch), the VT323 time, the date, and the battery as a thin glowing bar with its percentage (aqua and pulsing while charging, gold at 30 % and below, orange at 15 % and below), plus `mute` and an orange `●` when a tray app needs you. Click opens the control center (sound, net, bluetooth, tray apps, nook) and the pill gets a cyan ring and glow while it's open. Right-click switches the layout, middle-click mutes, scroll changes the volume. Everything that used to have its own pill (kb, net · bt, vol, tray) lives behind it.
   - CPU braille sparkline and RAM.
-  - Volume: scroll to change, click to mute.
-  - Tray: left click activates, right click opens the menu.
   - `⏻`: menu on left click, lock on right click.
 - **Launcher / hack menu** (`Launcher.qml`, `SUPER SPACE` or `λ nook`): the design system's Launcher, live.
   - NOOK banner, `user@host`, kernel and uptime.
@@ -61,18 +59,18 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - Pinned apps from `config/apps.conf` as `[01] ▢ name ...... binary`, with line icons in the category hue. Typing searches every app.
   - `SYS // LIVE` (cpu, ram, gpu, temp, net, workspaces), a hexdump of what you type, and the cat.
   - `[lock] [sleep] [reboot] [shutdown]`. Reboot and shutdown ask with a second click.
-  - Keys: `↑↓`/Tab to move, `⏎` to run, `Alt 1‥9` for direct launch, `Esc` or a click outside to close.
-- **Keyboard pill** `kb eu` / `kb de` in the bar: shows the active layout (EurKEY / German, `kb_layout = "eu,de"` in `machine.lua`). Click it or press `SUPER K` to switch.
-- **Control center** (`ControlCenter.qml`, `SUPER A`, or click `vol` / `net · bt` / `bg N` in the bar, right-click `λ nook`), five tabs in the launcher's look:
+  - Keys (it all works without a mouse): `↑↓` or `Ctrl N`/`P` move through every result and the list scrolls, `PgUp`/`PgDn` jump 9, `⏎` runs, `Alt 1‥9` runs a visible row. `Tab` moves to the power buttons: `←→` pick, `⏎` presses (twice for reboot / shutdown), `Tab` or `Esc` go back, typing goes back and searches. Straight from the prompt: `Alt L` lock, `Alt S` sleep, `Alt R` reboot, `Alt P` shutdown (the last two press twice), or type it: `sh`, `reb`, `lock`, `sleep`, `off` … list the power action first, `⏎` runs it (twice for reboot / shutdown). `Esc` or a click outside closes.
+- **Keyboard layout** (EurKEY / German, `kb_layout = "eu,de"` in `machine.lua`) shows as the dot in the clock pill. `SUPER K`, a click on the dot, or a right-click on the clock switches it.
+- **Control center** (`ControlCenter.qml`, above the clock on the right), five tabs in the launcher's look. Open it with `SUPER A` (last tab), `SUPER N` (net), `SUPER ⇧ B` (bluetooth), a click on the clock, or right-click `λ nook` (nook tab). It works fully from the keyboard: `↑↓` (or `j k`) move the focus, `⏎` / space press, `←→` change a volume (`⇧` for 1 %), `m` mutes, `del` forgets / removes, `m` on a tray app opens its menu, `Tab` `⇧Tab` or `1‥5` switch tabs, `Esc` closes.
   - `audio`: output and input device to pick, volume and mic bars (click, drag or scroll), mute, and a mixer per app.
-  - `net`: wifi on/off and networks by signal; it scans while the tab is open. Click to connect or disconnect. A new secured network asks for its password right in the row (`⏎` joins, `show` reveals it); a wrong one shows why and asks again. Known networks have `[forget]` (click twice). Wired links (from `nmcli`, without container veths) connect and disconnect with a click. `settings` opens `nm-connection-editor`, or `nmtui` without it.
+  - `net`: wifi on/off and networks by signal; it scans while the tab is open. Click to connect or disconnect. A new secured network asks for its password right in the row (`⏎` joins, `show` reveals it); a wrong one shows why and asks again. Known networks have `[forget]` (click twice). Wired links (from `nmcli`, without container veths) connect and disconnect with a click. Below them, **`NET // PROFILES`** lists every wired NetworkManager profile with `dhcp` or its static address. A click (or `⏎`) switches to it, and a click on the active one takes it down. A profile bound to a MAC or an interface goes to that adapter (shown as `→ eth0`; with a dock that passes the laptop's MAC through, the adapter with a cable wins). Any other profile goes to the adapter in `[on eth0 ⇄]`, which cycles through the adapters with a cable. Profiles whose adapter isn't plugged in are greyed out, and nmcli errors show in the panel. `bin/nook-wired list | up UUID [DEVICE] | down UUID` does the work. `settings` opens `nm-connection-editor`, or `nmtui` without it.
   - `bt`: bluetooth on/off, scan, devices with connect/disconnect and battery. A new device pairs, gets trusted and connects with one click; `[cancel]` stops pairing, `[forget]` (click twice) removes a paired one.
   - `apps`: the background apps (the tray) as a list. Click opens, right-click opens their menu. Also what's playing.
-  - `nook`: what the shell shows, live. Every bar module (λ nook, workspaces, window, clock, cpu · ram, keyboard, net · bt, volume, background, power), every desktop widget, the wallpaper's NOOK banner and dot grid, and the cheatsheet switch on and off with a click. The homelab hosts are added (`name` + `host` or `host:port`, `⏎`), changed (click a row) and removed (`[remove]`, click twice) here, and the weather place is set here. The switches are kept in `~/.config/nook/shell.json` (`Settings.qml`; only what's off is stored), hosts and place in `widgets.conf` (written by `nook-feed set|unset`, comments stay). Also over IPC: `qs -c nook ipc call nook toggle|on|off widget.srv`, `… nook list`.
+  - `nook`: what the shell shows, live. Every bar module (λ nook, workspaces, window, clock, cpu · ram, power), every desktop widget, the wallpaper's NOOK banner and dot grid, and the cheatsheet switch on and off with a click. The homelab hosts are added (`name` + `host` or `host:port`, `⏎`), changed (click a row) and removed (`[remove]`, click twice) here, and the weather place is set here. The switches are kept in `~/.config/nook/shell.json` (`Settings.qml`; only what's off is stored), hosts and place in `widgets.conf` (written by `nook-feed set|unset`, comments stay). Also over IPC: `qs -c nook ipc call nook toggle|on|off widget.srv`, `… nook list`.
 - **Cheatsheet** (`CheatSheet.qml`) sits on the wallpaper, under every window. `SUPER /` toggles it.
   - It reads the binds from `hyprctl binds -j`. Every bind in `nook.lua` with a description
     `"group: label"` shows up there, so `nook.lua` is the only list of keys.
-  - Group colours: APPS amber, WINDOWS cyan, WORKSPACES blue, SYSTEM red.
+  - Group colours: APPS amber, SETTINGS aqua (control center, net, bluetooth, keyboard), WINDOWS cyan, WORKSPACES blue, SYSTEM red.
 - **Widgets** (`Widgets.qml`), top right. Landscape screens get two columns, portrait screens one:
   - `TIME // LOCAL` in the `NOOK` banner's shadow-block font (`███╗`), one fire → ice hue per row, and the ISO week.
   - `SYS // LIVE` with cpu / ram / disk `[████░░]` bars, net as a blue sparkline, and the CPU temperature. With an NVIDIA card also gpu and vram bars, a load sparkline, temperature, watts and fan (`nvidia-smi`).
@@ -84,6 +82,10 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
   - Weather place, hosts and calendar are personal, so they live in `~/.config/nook/widgets.conf` (installed once from `config/widgets.example.conf`; place and hosts can also be set in the `nook` tab). A widget with nothing configured hides, and so does one switched off in the `nook` tab (it stops polling too). `Feeds.qml` polls `bin/nook-feed`.
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.
 - `Theme.qml` holds the tokens and `Stats.qml` the shared `/proc` numbers.
+
+## Autostart
+
+Apps in `~/.config/autostart` and `/etc/xdg/autostart` (Blip, KDE Connect …) run like under Plasma, through systemd's XDG autostart generator, which honours `OnlyShowIn`/`NotShowIn`. They start only once Quickshell owns the tray (`bin/nook-autostart start`), because tray apps register their icon once, when they start. `SUPER ⇧ R` restarts the running ones after the shell (`nook-autostart restart`), so their icons come back. `nook.lua` also puts `~/.local/bin` on the session's PATH, which the nook helpers (`nook-shot`, `nook-gamemode` …) need.
 
 ## Screen sharing
 
@@ -112,7 +114,8 @@ It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app as
 | apps | `SUPER ⏎` kitty · `SUPER SPACE` menu · `SUPER E` dolphin · `SUPER B` browser · `SUPER ⇧ ⏎` btop |
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
 | workspaces | `SUPER 1‥9` · `SUPER ⇧ 1‥9` send (also off a workspace the bar doesn't show) · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad · `SUPER` + scroll. Every screen has a home workspace, counted from the left: 1, 2, 3 …; the rest open on the focused screen |
-| system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER K` keyboard EurKEY ⇄ German · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), saved to ~/Pictures/Screenshots + clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
+| settings | `SUPER A` control center (last tab) · `SUPER N` net (wifi, ethernet) · `SUPER ⇧ B` bluetooth · `SUPER K` keyboard EurKEY ⇄ German |
+| system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), saved to ~/Pictures/Screenshots + clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 
 ## Known gaps
 

@@ -118,6 +118,19 @@ Scope {
         value: Ui.controlOpen && Ui.controlTab === "net"
     }
     function nmcli(args) { Quickshell.execDetached(["sh", "-c", "nmcli \"$@\" >/dev/null 2>&1; qs -c nook ipc call control rescan", "nmcli"].concat(args)) }
+    // Quickshell 0.3 renamed the network enums and added connectionFailed / connectWithPsk;
+    // 0.2 (Fedora's package) has NetworkState, nmReason and no psk call. Both are handled.
+    readonly property var netState: typeof ConnectionState !== "undefined" ? ConnectionState : NetworkState
+    readonly property var failReason: typeof ConnectionFailReason !== "undefined" ? ConnectionFailReason : NMConnectionStateReason
+    function wifiFailed(net, ssid, open, reason) {
+        if (reason === undefined || reason === failReason.None || reason === failReason.Unknown || net.connected) return;
+        root.netError = ssid + ": " + failReason.toString(reason).toLowerCase();
+        if (reason === failReason.NoSecrets && !open) root.pskFor = net.name;
+    }
+    function joinWithPsk(net, psk) {
+        if (typeof net.connectWithPsk === "function") net.connectWithPsk(psk);
+        else root.nmcli(["device", "wifi", "connect", net.name, "password", psk]);
+    }
     function netSettings() {
         Ui.controlOpen = false;
         Quickshell.execDetached(["sh", "-c", "command -v nm-connection-editor >/dev/null && exec nm-connection-editor || exec kitty -e nmtui"]);
@@ -646,17 +659,16 @@ Scope {
                                 required property var modelData
                                 readonly property string ssid: modelData.name || "(hidden)"
                                 readonly property bool open: modelData.security === WifiSecurityType.Open
-                                readonly property bool busy: modelData.stateChanging || modelData.state === ConnectionState.Connecting
+                                readonly property bool busy: modelData.stateChanging || modelData.state === root.netState.Connecting
                                 readonly property bool asking: root.pskFor !== "" && root.pskFor === modelData.name
                                 Layout.fillWidth: true
                                 spacing: 3
 
                                 Connections {
                                     target: wrow.modelData
-                                    function onConnectionFailed(reason) {
-                                        root.netError = wrow.ssid + ": " + ConnectionFailReason.toString(reason).toLowerCase();
-                                        if (reason === ConnectionFailReason.NoSecrets && !wrow.open) root.pskFor = wrow.modelData.name;
-                                    }
+                                    ignoreUnknownSignals: true
+                                    function onConnectionFailed(reason) { root.wifiFailed(wrow.modelData, wrow.ssid, wrow.open, reason) }
+                                    function onNmReasonChanged() { root.wifiFailed(wrow.modelData, wrow.ssid, wrow.open, wrow.modelData.nmReason) }
                                     function onConnectedChanged() {
                                         if (wrow.modelData.connected && root.pskFor === wrow.modelData.name) root.pskFor = "";
                                         if (wrow.modelData.connected) root.netError = "";
@@ -697,7 +709,7 @@ Scope {
                                         secret: !showPsk.on
                                         hue: Theme.blue
                                         placeholder: "password"
-                                        onAccepted: if (text.length >= 8) { wrow.modelData.connectWithPsk(text); root.netError = "" }
+                                        onAccepted: if (text.length >= 8) { root.joinWithPsk(wrow.modelData, text); root.netError = "" }
                                                     else root.netError = "a wifi password has at least 8 characters"
                                         onCancelled: root.pskFor = ""
                                     }

@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""nook-tabs: your browser tabs for the launcher, without opening the browser to the world.
+
+usage: nook-tabs list            every tab as JSON lines {id, window, title, url, active, audible}
+       nook-tabs activate ID     show that tab and focus its window
+       nook-tabs close ID        close that tab
+       nook-tabs install         register the helper with Brave / Chrome / Chromium
+
+How it fits together: the "nook tabs" extension (tile/browser/nook-tabs) asks the browser to
+start this script as its native messaging host. The browser only does that for the extension id
+in the host manifest, and talks to it over stdin/stdout. While it runs, the script listens on
+$XDG_RUNTIME_DIR/nook-tabs.sock (that folder is yours alone, the socket 0600, and a client must
+run as your uid) and passes exactly three requests on: list, activate, close. There is no
+remote-debugging port, and nothing can make the browser open a page or run a script.
+"""
+import json
+import os
+import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
+
+EXT_ID = "aalljbnelhceegjhclhhggcibcjhpghp"   # fixed by the "key" in the extension's manifest
+HOST = "nook.tabs"
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+SOCK = os.path.join(RUNTIME, "nook-tabs.sock")
+BROWSER_DIRS = [                                # where each browser looks for host manifests
+    "~/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts",
+    "~/.config/google-chrome/NativeMessagingHosts",
+    "~/.config/chromium/NativeMessagingHosts",
+]
+BROWSER_CLASSES = ("brave-browser", "google-chrome", "chromium", "chromium-browser")
+
+
+# ── host: started by the browser ─────────────────────────────────────────────
+def host():
+    out = sys.stdout.buffer
+    out_lock = threading.Lock()
+    pending = {}                    # request id → (event, [reply])
+    pending_lock = threading.Lock()
+    next_id = [0]
+
+    def to_browser(msg):
+        data = json.dumps(msg).encode()
+        with out_lock:
+            out.write(struct.pack("=I", len(data)) + data)
+            out.flush()
+
+    def from_browser():
+        inp = sys.stdin.buffer
+        while True:
+            head = inp.read(4)
+            if len(head) < 4:
+                break                       # browser closed the pipe: it quit or the extension went
+            body = inp.read(struct.unpack("=I", head)[0])
+            try:
+                msg = json.loads(body)
+            except ValueError:
+                continue
+            with pending_lock:
+                waiter = pending.pop(msg.get("id"), None)
+            if waiter:
+                waiter[1].append(msg)
+                waiter[0].set()
+        try:
+            os.unlink(SOCK)
+        except OSError:
+            pass
+        os._exit(0)
+
+    def ask(req):
+        with pending_lock:
+            next_id[0] += 1
+            rid = next_id[0]
+            waiter = (threading.Event(), [])
+            pending[rid] = waiter
+        to_browser({"id": rid, **req})
+        if not waiter[0].wait(5):
+            with pending_lock:
+                pending.pop(rid, None)
+            return {"ok": False, "error": "the browser did not answer"}
+        return waiter[1][0]
+
+    def serve(conn):
+        with conn:
+            # only our own user may ask
+            cred = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+            _pid, uid, _gid = struct.unpack("3i", cred)
+            if uid != os.getuid():
+                return
+            conn.settimeout(5)
+            line = conn.makefile("rb").readline(4096)
+            try:
+                req = json.loads(line)
+            except ValueError:
+                return
+            cmd, tab = req.get("cmd"), req.get("tab")
+            if cmd == "list":
+                reply = ask({"cmd": "list"})
+            elif cmd in ("activate", "close") and isinstance(tab, int) and not isinstance(tab, bool):
+                reply = ask({"cmd": cmd, "tab": tab})
+            else:
+                reply = {"ok": False, "error": "unknown request"}
+            reply.pop("id", None)
+            conn.sendall(json.dumps(reply).encode() + b"\n")
+
+    try:
+        os.unlink(SOCK)             # a second browser profile takes over; a stale socket goes
+    except OSError:
+        pass
+    old = os.umask(0o177)
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    srv.bind(SOCK)
+    os.umask(old)
+    os.chmod(SOCK, 0o600)
+    srv.listen(8)
+    threading.Thread(target=from_browser, daemon=True).start()
+    while True:
+        conn, _ = srv.accept()
+        threading.Thread(target=serve, args=(conn,), daemon=True).start()
+
+
+# ── client: the launcher, the terminal ───────────────────────────────────────
+def request(req):
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(6)
+    try:
+        s.connect(SOCK)
+    except OSError:
+        sys.exit("nook-tabs: the browser isn't running, or the nook tabs extension isn't loaded")
+    with s:
+        s.sendall(json.dumps(req).encode() + b"\n")
+        reply = json.loads(s.makefile("rb").readline() or b"{}")
+    if not reply.get("ok"):
+        sys.exit("nook-tabs: " + str(reply.get("error", "no answer")))
+    return reply
+
+
+def focus_browser_window(title):
+    """Wayland doesn't let the browser raise itself, so Hyprland focuses the window."""
+    try:
+        clients = json.loads(subprocess.run(["hyprctl", "clients", "-j"], capture_output=True,
+                                            text=True, timeout=3).stdout)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return
+    wins = [c for c in clients if c.get("class") in BROWSER_CLASSES]
+    match = [c for c in wins if title and c.get("title", "").startswith(title)]
+    win = (match or sorted(wins, key=lambda c: c.get("focusHistoryID", 99)))[:1]
+    if win:
+        subprocess.run(["hyprctl", "dispatch", f'hl.dsp.focus({{ window = "address:{win[0]["address"]}" }})'],
+                       capture_output=True, timeout=3)
+
+
+def install():
+    exe = os.path.realpath(sys.argv[0])
+    manifest = {
+        "name": HOST,
+        "description": "nook tabs: the launcher's view of your tabs",
+        "path": exe,
+        "type": "stdio",
+        "allowed_origins": [f"chrome-extension://{EXT_ID}/"],
+    }
+    for d in BROWSER_DIRS:
+        d = os.path.expanduser(d)
+        if not os.path.isdir(os.path.dirname(d)):
+            continue                        # that browser isn't installed
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, HOST + ".json"), "w") as f:
+            json.dump(manifest, f, indent=2)
+        print("registered in", d)
+
+
+def tab_id(arg):
+    try:
+        return int(arg)
+    except ValueError:
+        sys.exit("nook-tabs: a tab id is a number")
+
+
+def main():
+    a = sys.argv[1:]
+    if a and a[0].startswith("chrome-extension://"):
+        host()
+    elif a == ["list"]:
+        for t in request({"cmd": "list"})["tabs"]:
+            print(json.dumps(t, ensure_ascii=False))
+    elif len(a) == 2 and a[0] == "activate":
+        title = request({"cmd": "activate", "tab": tab_id(a[1])}).get("title", "")
+        time.sleep(0.15)                    # let the window title follow the tab
+        focus_browser_window(title)
+    elif len(a) == 2 and a[0] == "close":
+        request({"cmd": "close", "tab": tab_id(a[1])})
+    elif a == ["install"]:
+        install()
+    else:
+        sys.exit(__doc__.split("\n\n")[1])
+
+
+if __name__ == "__main__":
+    main()

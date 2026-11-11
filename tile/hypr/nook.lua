@@ -284,7 +284,25 @@ bind(M("A"),       hl.dsp.exec_cmd("qs -c nook ipc call control last"),         
 bind(M("N"),       hl.dsp.exec_cmd("qs -c nook ipc call control toggle net"),   "settings: net · wifi, ethernet")
 bind(MS("B"),      hl.dsp.exec_cmd("qs -c nook ipc call control toggle bt"),    "settings: bluetooth")
 bind(M("E"),       hl.dsp.exec_cmd(files),             "apps: files")
-bind(M("B"),       hl.dsp.exec_cmd(browser),           "apps: browser")
+-- SUPER B goes to the browser you have open (the last used window; again → the next one) and
+-- only starts one when there is none. Web apps (brave --app) are their own class and don't count.
+local browser_classes = { ["brave-browser"] = true, ["google-chrome"] = true, ["chromium"] = true,
+                          ["chromium-browser"] = true, ["firefox"] = true, ["zen"] = true, ["librewolf"] = true }
+function nook_focus_browser()
+    local wins = {}
+    for _, w in ipairs(hl.get_windows()) do
+        if w.mapped and browser_classes[w.class] and not (w.workspace and w.workspace.id < 0) then
+            table.insert(wins, w)
+        end
+    end
+    if #wins == 0 then hl.dispatch(hl.dsp.exec_cmd(browser)); return end
+    table.sort(wins, function(a, b) return a.focus_history_id < b.focus_history_id end)
+    local pick = wins[1]
+    -- already in the browser: cycle through its windows, the one used longest ago next
+    if pick.active and #wins > 1 then pick = wins[#wins] end
+    hl.dispatch(hl.dsp.focus({ window = "address:" .. pick.address }))
+end
+bind(M("B"),       function() nook_focus_browser() end, "apps: browser (the open one, or a new one)")
 bind(MS("RETURN"), hl.dsp.exec_cmd(term .. " -e btop"), "apps: btop")
 
 -- windows

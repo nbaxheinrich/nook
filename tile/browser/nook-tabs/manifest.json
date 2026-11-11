@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "nook tabs",
+  "version": "1.0",
+  "description": "Lets the nook launcher list, switch to and close your tabs. Talks only to the local nook-tabs helper.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxraedOE0YnRO5pPac1EqTAbJqwyf5pi1BS/5OhXptNbq2dDCSrVVzvFmLqLIXA5wgjLoES4K1S6OSv2ez9d+QPDs5TJP77T2LLZbckINNSc6S6fsxsdKCD3ph5493ZHeAisaMdXf6vLEV3bGi+mhgMF71dWPlgkdddR/J7zTng9Om+nWTn/M+rXSuTJEi/qAyxDBe04TSqyfGu2Ojfeuk0df4+WDOJp50o5dr7Cceiu9XfX8UYqn6S3HTDsDDh5UsjR+vcn9MY43qz1YqHmLv3PTQ0MmjfsNblFdkLQtcXJ7kRaJN4VN6fcDQUtBb5Cq+HBZipAd1Tmcl8BR1pL0WQIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": ["tabs", "nativeMessaging"],
+  "background": { "service_worker": "background.js" }
+}

@@ -56,6 +56,7 @@ Scope {
             if (Ui.launcherOpen) {
                 root.query = ""; root.sel = 0; root.offset = 0; root.armed = ""; root.zone = "apps";
                 info.running = true;
+                root.tabs = []; tabList.running = true;
             }
         }
     }
@@ -124,8 +125,38 @@ Scope {
         if (extra.includes(q)) return 20;
         return 0;
     }
+    // ── browser tabs (bin/nook-tabs + the nook tabs extension): "@" alone lists them all,
+    //    "@word" only tabs, any other query shows matching tabs below the apps ──
+    property var tabs: []
+    readonly property bool tabMode: /^\s*@/.test(root.query)
+    Process {
+        id: tabList
+        command: ["nook-tabs", "list"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const out = [];
+                for (const l of this.text.split("\n")) {
+                    try { if (l.trim()) out.push(JSON.parse(l)); } catch (e) {}
+                }
+                root.tabs = out;
+            }
+        }
+    }
+    function hostOf(url) { const m = /^\w+:\/\/([^/]+)/.exec(url ?? ""); return m ? m[1].replace(/^www\./, "") : "" }
+    function tabHits(q) {
+        return root.tabs.filter(t => q === "" || (t.title + " " + root.hostOf(t.url)).toLowerCase().includes(q))
+                        .map(t => ({ label: t.title || root.hostOf(t.url), hue: t.audible ? "gold" : "cyan", tab: t }));
+    }
+    function closeTab(i) {
+        const r = root.results[i];
+        if (!r?.tab) return;
+        Quickshell.execDetached(["nook-tabs", "close", String(r.tab.id)]);
+        root.tabs = root.tabs.filter(t => t.id !== r.tab.id);
+    }
+
     readonly property var results: {
         const q = root.query.trim().toLowerCase();
+        if (root.tabMode) return root.tabHits(q.slice(1).trim());
         if (q === "") return root.pinned;
         const hits = [];
         for (const e of DesktopEntries.applications.values) {
@@ -136,7 +167,8 @@ Scope {
         hits.sort((a, b) => b.s - a.s || a.e.name.localeCompare(b.e.name));
         const seen = new Set();
         return root.powerHits(q).concat(hits.filter(h => !seen.has(h.e.name) && seen.add(h.e.name))
-                   .map(h => ({ label: h.e.name.toLowerCase(), hue: root.hueOf(h.e), entry: h.e })));
+                   .map(h => ({ label: h.e.name.toLowerCase(), hue: root.hueOf(h.e), entry: h.e })))
+                   .concat(q.length >= 2 ? root.tabHits(q) : []);
     }
     onResultsChanged: { sel = 0; offset = 0 }
     onQueryChanged: armed = ""
@@ -155,6 +187,11 @@ Scope {
         const r = root.results[i];
         if (!r) return;
         if (r.power) { root.pressPower(r.power); return; }
+        if (r.tab) {
+            Quickshell.execDetached(["nook-tabs", "activate", String(r.tab.id)]);
+            Ui.launcherOpen = false;
+            return;
+        }
         r.entry.execute();
         Ui.launcherOpen = false;
     }
@@ -391,6 +428,7 @@ Scope {
                                     else if (k === Qt.Key_PageDown) root.move(root.maxRows, false);
                                     else if (k === Qt.Key_PageUp) root.move(-root.maxRows, false);
                                     else if (k === Qt.Key_Return || k === Qt.Key_Enter) root.launch(root.sel);
+                                    else if (ctrl && k === Qt.Key_W) root.closeTab(root.sel);
                                     else if ((e.modifiers & Qt.AltModifier) && k >= Qt.Key_1 && k <= Qt.Key_9) root.launch(root.offset + k - Qt.Key_1);
                                     else return;
                                 }
@@ -414,7 +452,8 @@ Scope {
                         Layout.alignment: Qt.AlignTop
                         spacing: 1
                         Label {
-                            text: (root.query === "" ? "APPS // PINNED" : "APPS // MATCH · " + root.results.length)
+                            text: (root.tabMode ? "TABS // " + root.results.length + "  ⏎ show · ctrl w close"
+                                   : root.query === "" ? "APPS // PINNED" : "APPS // MATCH · " + root.results.length)
                                   + (root.results.length > root.maxRows ? "  [" + (root.offset + 1) + "–" + Math.min(root.results.length, root.offset + root.maxRows) + "]" : "")
                             Layout.bottomMargin: 5
                         }
@@ -441,7 +480,7 @@ Scope {
                                         color: row.selected ? Theme.cyan : Theme.faint
                                     }
                                     Image {
-                                        source: Icons.url(row.modelData.power ? "power" : root.iconOf(row.modelData.entry, row.modelData.hue), row.hue.toString())
+                                        source: Icons.url(row.modelData.power ? "power" : row.modelData.tab ? "globe" : root.iconOf(row.modelData.entry, row.modelData.hue), row.hue.toString())
                                         sourceSize: Qt.size(16, 16)
                                         Layout.preferredWidth: 16; Layout.preferredHeight: 16
                                         layer.enabled: true
@@ -450,7 +489,8 @@ Scope {
                                     Mono { text: row.modelData.label + (row.modelData.power && root.armed === row.modelData.power.id ? "?" : ""); color: row.hue; Layout.maximumWidth: 150; elide: Text.ElideRight; font.bold: !!row.modelData.power && root.armed === row.modelData.power.id }
                                     Mono { text: ".".repeat(60); color: Theme.faint; Layout.fillWidth: true; clip: true; elide: Text.ElideNone }
                                     Mono {
-                                        text: !row.modelData.power ? root.binOf(row.modelData.entry)
+                                        text: row.modelData.tab ? root.hostOf(row.modelData.tab.url)
+                                            : !row.modelData.power ? root.binOf(row.modelData.entry)
                                             : root.armed === row.modelData.power.id ? "⏎ again" : "alt " + row.modelData.power.cap.toLowerCase()
                                         color: row.modelData.power && root.armed === row.modelData.power.id ? Theme.orange : Theme.muted
                                         Layout.maximumWidth: 90; elide: Text.ElideRight

@@ -5,6 +5,11 @@
   nook-feed srv        SRV // HOMELAB  (ping, or TCP connect for host:port)
   nook-feed cal        CAL // NEXT     (CalDAV, e.g. Nextcloud; password from the keyring)
   nook-feed cal --setup                store the CalDAV password in the keyring
+  nook-feed conf                       the editable settings as JSON (weather place, hosts, calendar)
+  nook-feed set SECTION KEY [VALUE]    write one setting, e.g. set srv nas 192.168.1.10
+  nook-feed unset SECTION KEY          remove one, e.g. unset srv nas
+
+The control center's nook tab uses conf/set/unset; comments in the file are kept.
 
 Settings live in ~/.config/nook/widgets.conf (tile/config/widgets.example.conf is the template).
 Only the Python standard library is used.
@@ -220,6 +225,71 @@ def cal():
     out({"ok": True, "events": events[:8]})
 
 
+# ── editing widgets.conf (the control center's nook tab) ─────────────────────
+# Line-based so the comments in the file survive; configparser would drop them.
+EDITABLE = {"weather": {"location", "lang"}, "srv": None, "cal": {"url", "user", "calendars", "days"}}
+NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,31}")
+HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,252}(:\d{1,5})?")
+
+
+def check(section, key, value):
+    if section not in EDITABLE:
+        sys.exit(f"unknown section {section!r} (have: {', '.join(EDITABLE)})")
+    keys = EDITABLE[section]
+    if keys is None:
+        if not NAME.fullmatch(key):
+            sys.exit(f"bad host name {key!r}: letters, digits, '.', '_', '-'")
+        if value is not None and not HOST.fullmatch(value):
+            sys.exit(f"bad host {value!r}: host or host:port")
+    elif key not in keys:
+        sys.exit(f"unknown key {key!r} in [{section}] (have: {', '.join(sorted(keys))})")
+    if value is not None and any(ch in value for ch in "\n\r#;"):
+        sys.exit("a value can't contain line breaks, '#' or ';'")
+
+
+def edit(section, key, value=None):
+    """Set section.key = value, or remove the key when value is None."""
+    check(section, key, value)
+    lines = CONF.read_text().splitlines() if CONF.exists() else []
+    start = next((i for i, line in enumerate(lines) if line.strip() == f"[{section}]"), None)
+    if start is None:
+        if value is None:
+            return
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines += [f"[{section}]", f"{key} = {value}"]
+    else:
+        end = next((i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("[")), len(lines))
+        hit = next((i for i in range(start + 1, end) if re.match(rf"\s*{re.escape(key)}\s*=", lines[i])), None)
+        if value is None:
+            if hit is not None:
+                del lines[hit]
+        elif hit is not None:
+            lines[hit] = f"{key} = {value}"
+        else:
+            last = max((i for i in range(start, end) if lines[i].strip()), default=start)
+            lines.insert(last + 1, f"{key} = {value}")
+    CONF.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CONF.with_suffix(".tmp")
+    tmp.write_text("\n".join(lines) + "\n")
+    tmp.replace(CONF)
+    if section == "weather":
+        (CACHE / "weather.json").unlink(missing_ok=True)
+
+
+def show_conf():
+    c = conf()
+    get = lambda s, k, d="": c.get(s, k, fallback=d).strip()
+    out({
+        "ok": True,
+        "path": str(CONF).replace(str(Path.home()), "~", 1),
+        "weather": {"location": get("weather", "location"), "lang": get("weather", "lang", "en")},
+        "srv": [{"name": k, "host": v.strip()} for k, v in (c["srv"].items() if c.has_section("srv") else [])],
+        "cal": {"url": get("cal", "url"), "user": get("cal", "user"), "calendars": get("cal", "calendars"),
+                "days": get("cal", "days", "7")},
+    })
+
+
 def setup():
     c = conf()
     user = c.get("cal", "user", fallback="").strip()
@@ -237,6 +307,10 @@ if __name__ == "__main__":
         elif cmd == "srv": srv()
         elif cmd == "cal" and "--setup" in sys.argv: setup()
         elif cmd == "cal": cal()
+        elif cmd == "conf": show_conf()
+        elif cmd == "set" and len(sys.argv) in (4, 5):
+            edit(sys.argv[2], sys.argv[3], sys.argv[4].strip() if len(sys.argv) == 5 else "")
+        elif cmd == "unset" and len(sys.argv) == 4: edit(sys.argv[2], sys.argv[3], None)
         else: sys.exit(__doc__)
     except Exception as e:  # the widget shows the error instead of going blank
         out({"ok": False, "error": f"{type(e).__name__}: {e}"[:120]})

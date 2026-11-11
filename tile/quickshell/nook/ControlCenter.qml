@@ -33,6 +33,7 @@ Scope {
         target: "control"
         function toggle(tab: string): void { Ui.openControl(tab || Ui.controlTab) }
         function close(): void { Ui.controlOpen = false }
+        function rescan(): void { nm.running = true }
     }
 
     // ── audio: nodes by media.class ──
@@ -55,7 +56,8 @@ Scope {
         command: ["nmcli", "-t", "-f", "TYPE,DEVICE,STATE,CONNECTION", "device"]
         stdout: StdioCollector {
             onStreamFinished: root.wired = this.text.trim().split("\n")
-                .map(l => l.split(":")).filter(f => f[0] === "ethernet")
+                // container veths (docker, podman) and unmanaged links aren't yours to click
+                .map(l => l.split(":")).filter(f => f[0] === "ethernet" && !/^veth/.test(f[1]) && f[2] !== "unmanaged")
                 .map(f => ({ dev: f[1], state: f[2], conn: f[3] }))
         }
     }
@@ -64,6 +66,32 @@ Scope {
     readonly property var wifiDev: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
     readonly property var wifiNets: (wifiDev?.networks?.values ?? []).slice()
         .sort((a, b) => (b.connected - a.connected) || (b.known - a.known) || (b.signalStrength - a.signalStrength))
+
+    // wifi scans while the net tab is open
+    Binding {
+        when: root.wifiDev !== null
+        target: root.wifiDev
+        property: "scannerEnabled"
+        value: Ui.controlOpen && Ui.controlTab === "net"
+    }
+    function nmcli(args) { Quickshell.execDetached(["sh", "-c", "nmcli \"$@\" >/dev/null 2>&1; qs -c nook ipc call control rescan", "nmcli"].concat(args)) }
+    function netSettings() {
+        Ui.controlOpen = false;
+        Quickshell.execDetached(["sh", "-c", "command -v nm-connection-editor >/dev/null && exec nm-connection-editor || exec kitty -e nmtui"]);
+    }
+
+    property string pskFor: ""            // the wifi network asking for its password
+    property string netError: ""
+    property string pairingWith: ""       // bt address we paired from here: trust + connect when done
+    // destructive row actions (forget, remove) need a second click within 3 s
+    property string armed: ""
+    Timer { id: disarm; interval: 3000; onTriggered: root.armed = "" }
+    function confirm(id) {
+        if (root.armed === id) { root.armed = ""; disarm.stop(); return true; }
+        root.armed = id;
+        disarm.restart();
+        return false;
+    }
 
     readonly property var bt: Bluetooth.defaultAdapter
     readonly property var btDevices: (bt?.devices?.values ?? []).slice()
@@ -106,28 +134,83 @@ Scope {
         MouseArea { id: btnArea; anchors.fill: parent; hoverEnabled: true; onClicked: btn.clicked() }
     }
     // a selectable row: [•] name ........ note, cyan ring when it's the current one
+    // An optional [action] button at the end (forget, remove …) sits on top of the row's click.
     component Row: Rectangle {
         id: row
         property string name
         property string note
         property color hue: Theme.ink
         property bool current: false
+        property string action: ""
+        property color actionHue: Theme.orange
         signal clicked()
+        signal actionClicked()
         Layout.fillWidth: true
         implicitHeight: 24
         radius: Theme.radiusSm
         color: current ? Theme.soft(Theme.cyan) : rowArea.containsMouse ? Theme.bg300 : "transparent"
-        border.width: current ? 1 : 0
-        border.color: Theme.cyan
+        border.width: current ? 1 : rowArea.containsMouse ? 1 : 0
+        border.color: current ? Theme.cyan : Theme.line
+        MouseArea { id: rowArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: row.clicked() }
         RowLayout {
-            anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
+            anchors { fill: parent; leftMargin: 6; rightMargin: 4 }
             spacing: 8
             Mono { text: row.current ? "[•]" : "[ ]"; color: row.current ? Theme.cyan : Theme.faint }
-            Mono { text: row.name; color: row.hue; Layout.maximumWidth: 250 }
+            Mono { text: row.name; color: row.hue; Layout.maximumWidth: 230 }
             Mono { text: ".".repeat(80); color: Theme.faint; Layout.fillWidth: true; clip: true; elide: Text.ElideNone }
             Mono { text: row.note; color: Theme.muted; font.pixelSize: Theme.small }
+            Btn {
+                visible: row.action !== ""
+                text: row.action
+                hue: row.actionHue
+                implicitHeight: 18
+                onClicked: row.actionClicked()
+            }
         }
-        MouseArea { id: rowArea; anchors.fill: parent; hoverEnabled: true; onClicked: row.clicked() }
+    }
+    // a one-line text field; ⏎ accepts, esc cancels (closes when empty), tab jumps to `next`
+    component Field: Rectangle {
+        id: field
+        property alias text: input.text
+        property string placeholder
+        property bool secret: false
+        property color hue: Theme.cyan
+        property Item next: null
+        signal accepted()
+        signal cancelled()
+        function focusIn() { input.forceActiveFocus() }
+        Layout.fillWidth: true
+        implicitHeight: 24
+        radius: Theme.radiusSm
+        color: Theme.bg200
+        border.width: 1
+        border.color: input.activeFocus ? field.hue : Theme.line
+        MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; onClicked: input.forceActiveFocus() }
+        TextInput {
+            id: input
+            anchors { fill: parent; leftMargin: 7; rightMargin: 7 }
+            verticalAlignment: TextInput.AlignVCenter
+            color: Theme.ink
+            selectionColor: field.hue
+            selectedTextColor: Theme.onAccent
+            font.family: Theme.font
+            font.pixelSize: 12
+            echoMode: field.secret ? TextInput.Password : TextInput.Normal
+            passwordCharacter: "•"
+            clip: true
+            selectByMouse: true
+            onAccepted: field.accepted()
+            // esc in an empty field falls through and closes the panel
+            Keys.onEscapePressed: e => { if (text === "") e.accepted = false; else field.cancelled() }
+            Keys.onTabPressed: e => { if (field.next) field.next.focusIn(); else e.accepted = false }
+        }
+        Mono {
+            anchors { fill: parent; leftMargin: 7 }
+            verticalAlignment: Text.AlignVCenter
+            visible: input.text === "" && !input.activeFocus
+            text: field.placeholder
+            color: Theme.faint
+        }
     }
     // [██████░░░░] 60%: click or drag to set, scroll for ±5%
     component Level: RowLayout {
@@ -313,16 +396,27 @@ Scope {
                             model: root.wired
                             Row {
                                 required property var modelData
+                                readonly property bool up: modelData.state === "connected"
                                 name: modelData.dev + (modelData.conn ? "  " + modelData.conn : "")
-                                note: modelData.state
-                                current: modelData.state === "connected"
-                                hue: current ? Theme.ink : Theme.muted
+                                readonly property bool cable: modelData.state !== "unavailable"
+                                note: cable ? modelData.state : "no cable"
+                                current: up
+                                hue: up ? Theme.ink : Theme.muted
+                                action: !cable ? "" : up ? "disconnect" : "connect"
+                                actionHue: up ? Theme.orange : Theme.blue
+                                onClicked: if (cable) actionClicked()
+                                onActionClicked: root.nmcli(["device", up ? "disconnect" : "connect", modelData.dev])
                             }
                         }
 
                         RowLayout {
                             Layout.fillWidth: true
                             Label { text: "NET // WIFI" + (root.wifiDev ? "  " + root.wifiDev.name : "") }
+                            Mono {
+                                visible: root.wifiDev?.scannerEnabled ?? false
+                                text: "scanning…"; color: Theme.faint; font.pixelSize: Theme.label
+                                Layout.topMargin: 6; Layout.bottomMargin: 2
+                            }
                             Item { Layout.fillWidth: true }
                             Btn {
                                 text: Networking.wifiEnabled ? "wifi on" : "wifi off"
@@ -330,28 +424,79 @@ Scope {
                                 on: Networking.wifiEnabled
                                 onClicked: Networking.wifiEnabled = !Networking.wifiEnabled
                             }
-                            Btn { text: "settings"; hue: Theme.amber; onClicked: { Ui.controlOpen = false; Quickshell.execDetached(["kitty", "-e", "nmtui"]) } }
+                            Btn { text: "settings"; hue: Theme.amber; onClicked: root.netSettings() }
                         }
                         Mono { visible: !root.wifiDev; text: "  no wifi device"; color: Theme.faint; font.pixelSize: Theme.small }
                         Repeater {
                             model: Networking.wifiEnabled ? root.wifiNets.slice(0, 12) : []
-                            Row {
+                            ColumnLayout {
+                                id: wrow
                                 required property var modelData
-                                name: modelData.name || "(hidden)"
-                                note: (modelData.connected ? "connected  " : modelData.known ? "known  " : "")
-                                      + (modelData.security === WifiSecurityType.Open ? "open " : "") + root.signal(modelData.signalStrength)
-                                current: modelData.connected
-                                hue: modelData.connected ? Theme.ink : modelData.known ? Theme.blue : Theme.muted
-                                // known and open networks connect here; new secured ones go through nmtui
-                                onClicked: {
-                                    if (modelData.connected) modelData.disconnect();
-                                    else if (modelData.known || modelData.security === WifiSecurityType.Open) modelData.connect();
-                                    else { Ui.controlOpen = false; Quickshell.execDetached(["kitty", "-e", "nmtui", "connect", modelData.name]); }
+                                readonly property string ssid: modelData.name || "(hidden)"
+                                readonly property bool open: modelData.security === WifiSecurityType.Open
+                                readonly property bool busy: modelData.stateChanging || modelData.state === ConnectionState.Connecting
+                                readonly property bool asking: root.pskFor !== "" && root.pskFor === modelData.name
+                                Layout.fillWidth: true
+                                spacing: 3
+
+                                Connections {
+                                    target: wrow.modelData
+                                    function onConnectionFailed(reason) {
+                                        root.netError = wrow.ssid + ": " + ConnectionFailReason.toString(reason).toLowerCase();
+                                        if (reason === ConnectionFailReason.NoSecrets && !wrow.open) root.pskFor = wrow.modelData.name;
+                                    }
+                                    function onConnectedChanged() {
+                                        if (wrow.modelData.connected && root.pskFor === wrow.modelData.name) root.pskFor = "";
+                                        if (wrow.modelData.connected) root.netError = "";
+                                    }
+                                }
+
+                                Row {
+                                    name: wrow.ssid
+                                    note: (wrow.busy ? "connecting…  " : wrow.modelData.connected ? "connected  " : wrow.modelData.known ? "known  " : "")
+                                          + (wrow.open ? "open " : "") + root.signal(wrow.modelData.signalStrength)
+                                    current: wrow.modelData.connected || wrow.asking
+                                    hue: wrow.modelData.connected ? Theme.ink : wrow.modelData.known ? Theme.blue : Theme.muted
+                                    action: wrow.modelData.known ? (root.armed === "wifi:" + wrow.ssid ? "sure?" : "forget") : ""
+                                    // known and open networks connect right away; new secured ones ask below
+                                    onClicked: {
+                                        root.netError = "";
+                                        if (wrow.modelData.connected) wrow.modelData.disconnect();
+                                        else if (wrow.modelData.known || wrow.open) wrow.modelData.connect();
+                                        else root.pskFor = wrow.asking ? "" : wrow.modelData.name;
+                                    }
+                                    onActionClicked: { if (root.confirm("wifi:" + wrow.ssid)) wrow.modelData.forget() }
+                                }
+                                RowLayout {
+                                    visible: wrow.asking
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: 30
+                                    Layout.bottomMargin: 4
+                                    spacing: 6
+                                    onVisibleChanged: if (visible) { psk.text = ""; psk.focusIn() }
+                                    Mono { text: "λ psk >"; color: Theme.aqua }
+                                    Field {
+                                        id: psk
+                                        secret: !showPsk.on
+                                        hue: Theme.blue
+                                        placeholder: "password"
+                                        onAccepted: if (text.length >= 8) { wrow.modelData.connectWithPsk(text); root.netError = "" }
+                                                    else root.netError = "a wifi password has at least 8 characters"
+                                        onCancelled: root.pskFor = ""
+                                    }
+                                    Btn { id: showPsk; text: "show"; hue: Theme.faint; onClicked: on = !on }
+                                    Btn { text: "join"; hue: Theme.blue; on: psk.text.length >= 8; onClicked: psk.accepted() }
                                 }
                             }
                         }
                         Mono {
-                            text: "click: connect / disconnect · new secured networks ask for the password in nmtui"
+                            visible: root.netError !== ""
+                            Layout.fillWidth: true
+                            text: "[!!] " + root.netError
+                            color: Theme.orange; font.pixelSize: Theme.small; wrapMode: Text.Wrap
+                        }
+                        Mono {
+                            text: "click: connect / disconnect · new networks ask for the password here"
                             color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
                         }
                     }
@@ -385,18 +530,37 @@ Scope {
                         Repeater {
                             model: (root.bt?.enabled ?? false) ? root.btDevices.slice(0, 14) : []
                             Row {
+                                id: brow
                                 required property var modelData
+                                readonly property bool connecting: modelData.state === BluetoothDeviceState.Connecting
+                                Connections {
+                                    target: brow.modelData
+                                    // paired from here: trust it (reconnects by itself later) and connect
+                                    function onPairedChanged() {
+                                        if (brow.modelData.paired && root.pairingWith === brow.modelData.address) {
+                                            root.pairingWith = "";
+                                            brow.modelData.trusted = true;
+                                            brow.modelData.connect();
+                                        }
+                                    }
+                                }
                                 name: modelData.name || modelData.address
                                 note: (modelData.batteryAvailable ? Math.round(modelData.battery * 100) + "%  " : "")
                                       + (modelData.connected ? "connected" : modelData.pairing ? "pairing…"
-                                         : modelData.state === BluetoothDeviceState.Connecting ? "connecting…"
+                                         : connecting ? "connecting…"
                                          : modelData.paired ? "paired" : "new")
                                 current: modelData.connected
                                 hue: modelData.connected ? Theme.ink : modelData.paired ? Theme.cyan : Theme.muted
+                                action: modelData.pairing ? "cancel"
+                                      : modelData.paired ? (root.armed === "bt:" + modelData.address ? "sure?" : "forget") : ""
                                 onClicked: {
                                     if (modelData.connected) modelData.disconnect();
                                     else if (modelData.paired) modelData.connect();
-                                    else modelData.pair();
+                                    else if (!modelData.pairing) { root.pairingWith = modelData.address; modelData.pair(); }
+                                }
+                                onActionClicked: {
+                                    if (modelData.pairing) modelData.cancelPair();
+                                    else if (root.confirm("bt:" + modelData.address)) modelData.forget();
                                 }
                             }
                         }
@@ -405,7 +569,7 @@ Scope {
                             text: "  no devices · press scan"; color: Theme.faint; font.pixelSize: Theme.small
                         }
                         Mono {
-                            text: "click: connect / disconnect · new devices pair (scan first)"
+                            text: "click: connect / disconnect · new devices pair and connect (scan first)"
                             color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
                         }
                     }

@@ -65,8 +65,8 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 - **Keyboard pill** `kb eu` / `kb de` in the bar: shows the active layout (EurKEY / German, `kb_layout = "eu,de"` in `machine.lua`). Click it or press `SUPER K` to switch.
 - **Control center** (`ControlCenter.qml`, `SUPER A`, or click `vol` / `net · bt` / `bg N` in the bar), four tabs in the launcher's look:
   - `audio`: output and input device to pick, volume and mic bars (click, drag or scroll), mute, and a mixer per app.
-  - `net`: wifi on/off and networks by signal. Click to connect or disconnect. New secured networks ask for the password in `nmtui`. Wired links are read from `nmcli`.
-  - `bt`: bluetooth on/off, scan, devices with connect/disconnect/pair and battery.
+  - `net`: wifi on/off and networks by signal; it scans while the tab is open. Click to connect or disconnect. A new secured network asks for its password right in the row (`⏎` joins, `show` reveals it); a wrong one shows why and asks again. Known networks have `[forget]` (click twice). Wired links (from `nmcli`, without container veths) connect and disconnect with a click. `settings` opens `nm-connection-editor`, or `nmtui` without it.
+  - `bt`: bluetooth on/off, scan, devices with connect/disconnect and battery. A new device pairs, gets trusted and connects with one click; `[cancel]` stops pairing, `[forget]` (click twice) removes a paired one.
   - `apps`: the background apps (the tray) as a list. Click opens, right-click opens their menu. Also what's playing.
 - **Cheatsheet** (`CheatSheet.qml`) sits on the wallpaper, under every window. `SUPER /` toggles it.
   - It reads the binds from `hyprctl binds -j`. Every bind in `nook.lua` with a description

@@ -54,7 +54,7 @@ git clone https://github.com/nookware/nook.git && cd nook
   Before a file changes you see the difference and confirm it, and the old one is backed up to
   `~/.local/state/nook/`.
 
-Your choices are remembered for next time. The package list with each distro's names is
+Your choices are remembered for next time. The package list with each distro's names (plasma, tile and every shell tool) is
 `lib/packages.tsv`.
 
 Without the TUI:

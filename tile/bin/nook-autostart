@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# nook-autostart — run the XDG autostart apps only once the shell's tray is there.
+#
+#   nook-autostart start     at login: start xdg-desktop-autostart.target
+#   nook-autostart restart   after a shell restart: restart the autostart apps that are running
+#
+# Tray apps (Blip, KDE Connect …) register their icon with org.kde.StatusNotifierWatcher once,
+# when they start. If no watcher is there yet (or kded6 holds the name without serving it), the
+# icon never shows: the app runs, but looks like it never started. So this waits until Quickshell
+# (`qs`) owns the watcher, at most 15 s, and then starts or restarts the apps.
+set -u
+
+wait_for_tray() {
+    for _ in $(seq 75); do
+        if busctl --user status org.kde.StatusNotifierWatcher 2>/dev/null | grep -qx "Comm=qs"; then
+            return 0
+        fi
+        sleep 0.2
+    done
+    echo "nook-autostart: qs never took the tray, starting the apps anyway" >&2
+    return 1
+}
+
+case "${1:-}" in
+    start)
+        wait_for_tray
+        exec systemctl --user start xdg-desktop-autostart.target
+        ;;
+    restart)
+        wait_for_tray
+        exec systemctl --user try-restart 'app-*@autostart.service'
+        ;;
+    *)
+        echo "usage: nook-autostart start | restart" >&2
+        exit 2
+        ;;
+esac

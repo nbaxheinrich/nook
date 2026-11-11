@@ -24,16 +24,18 @@ local menu     = "qs -c nook ipc call launcher toggle"
 -------------------------------------------------------------------------------
 hl.on("hyprland.start", function()
     -- environment into systemd/dbus, then graphical-session.target (xdg-desktop-portal needs it),
-    -- then the shell, so Quickshell finds the portal already running.
+    -- then the shell, so Quickshell finds the portal already running. The autostart apps come
+    -- last (bin/nook-autostart): it waits until qs owns the tray watcher, otherwise Blip, KDE
+    -- Connect … start without a tray, never show their icon and look like they didn't start.
     -- pam_kwallet_init hands the session to the ksecretd that SDDM started with the login password:
     -- it unlocks the wallet and serves org.freedesktop.secrets. Plasma runs it itself, but its
     -- autostart entry has X-systemd-skip, so here nobody would, and Nextcloud (started by the
     -- session target) found no keychain and asked for a fresh login every boot.
     hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP "
-        .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE XDG_DATA_DIRS "
+        .. "HYPRLAND_INSTANCE_SIGNATURE DISPLAY QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE XDG_DATA_DIRS XDG_MENU_PREFIX "
         .. "&& { [ -x /usr/libexec/pam_kwallet_init ] && /usr/libexec/pam_kwallet_init; true; } "
         .. "&& systemctl --user start hyprland-session.target hyprpolkitagent "
-        .. "; nook-session-look hyprland; qs -c nook")  -- Ramen icons for KDE apps, then the shell
+        .. "; kbuildsycoca6 >/dev/null 2>&1; nook-session-look hyprland; { nook-autostart start & }; exec qs -c nook")  -- Ramen icons for KDE apps, then the shell
     hl.exec_cmd("mako")                                 -- notifications
     hl.exec_cmd("hypridle")                             -- lock when idle
 end)
@@ -51,6 +53,17 @@ for _, dir in ipairs({ "/var/lib/flatpak/exports/share", home .. "/.local/share/
     if not (":" .. data_dirs .. ":"):find(":" .. dir .. ":", 1, true) then data_dirs = dir .. ":" .. data_dirs end
 end
 hl.env("XDG_DATA_DIRS", data_dirs)
+-- ~/.local/bin for the nook helpers (nook-shot, nook-gamemode, nook-display, nook-session-look,
+-- nook-autostart …): the login session's PATH doesn't have it, so every bind and the start chain
+-- that calls them by name failed without a word.
+local path = os.getenv("PATH") or "/usr/local/bin:/usr/bin:/bin"
+if not (":" .. path .. ":"):find(":" .. home .. "/.local/bin:", 1, true) then
+    hl.env("PATH", home .. "/.local/bin:" .. path)
+end
+-- KDE's app database (ksycoca: Dolphin's "Open with", default apps for images, PDFs …) is built
+-- from <prefix>applications.menu. Plasma sets the prefix itself; without it kbuildsycoca6 finds no
+-- /etc/xdg/menus/applications.menu and Dolphin knows no apps (Gwenview, Okular … missing).
+hl.env("XDG_MENU_PREFIX", "plasma-")
 
 hl.env("XCURSOR_THEME", "Nook-Pixel")     -- old-school pixel cursors (shared/cursors/pixelcursors.py)
 hl.env("XCURSOR_SIZE", "16")
@@ -293,7 +306,9 @@ bind(MS("A"),    hl.dsp.exec_cmd("nook-shot screen"),                           
 hl.bind("PRINT",    hl.dsp.exec_cmd("nook-shot area"))
 hl.bind(MS("PRINT"), hl.dsp.exec_cmd("nook-shot screen"))
 bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet toggle"),         "system: this cheatsheet")
-bind(MS("R"),    hl.dsp.exec_cmd("pkill -x qs; qs -c nook"),                       "system: reload shell")
+-- kded6 grabs the tray name while qs is down, and tray apps only register once: so stop kded6,
+-- and restart the running autostart apps once the new qs has the tray (bin/nook-autostart)
+bind(MS("R"),    hl.dsp.exec_cmd("pkill -x kded6; pkill -x qs; sleep 0.3; { nook-autostart restart & }; exec qs -c nook"), "system: reload shell")
 bind(MS("E"),    hl.dsp.exit(),                                                    "system: exit hyprland")
 bind(M("G"),     hl.dsp.exec_cmd("nook-gamemode"),                                 "system: game mode on / off")
 bind(MS("P"),    hl.dsp.exec_cmd("nook-display"),                                  "system: screens extend ⇄ duplicate")

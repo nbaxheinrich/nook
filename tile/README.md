@@ -83,6 +83,10 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 - **Wallpaper** (`Wallpaper.qml`), drawn live per screen: dot grid, scanlines, and the glowing `NOOK` banner.
 - `Theme.qml` holds the tokens and `Stats.qml` the shared `/proc` numbers.
 
+## Autostart
+
+Apps in `~/.config/autostart` and `/etc/xdg/autostart` (Blip, KDE Connect …) run like under Plasma, through systemd's XDG autostart generator, which honours `OnlyShowIn`/`NotShowIn`. They start only once Quickshell owns the tray (`bin/nook-autostart start`), because tray apps register their icon once, when they start. `SUPER ⇧ R` restarts the running ones after the shell (`nook-autostart restart`), so their icons come back. `nook.lua` also puts `~/.local/bin` on the session's PATH, which the nook helpers (`nook-shot`, `nook-gamemode` …) need.
+
 ## Screen sharing
 
 It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app asks). Two things keep it working:

@@ -1,12 +1,12 @@
 # nook-tile: Hyprland started from the login screen (without uwsm) does not start
 # graphical-session.target, so xdg-desktop-portal (Requisite= on it) never runs.
 # nook.lua starts this target after importing the Wayland environment, and stops it on exit.
-# It also pulls in xdg-desktop-autostart.target, so ~/.config/autostart and /etc/xdg/autostart
-# run like under Plasma (systemd's generator honours OnlyShowIn/NotShowIn via XDG_CURRENT_DESKTOP).
+# xdg-desktop-autostart.target (~/.config/autostart and /etc/xdg/autostart, like under Plasma;
+# systemd's generator honours OnlyShowIn/NotShowIn via XDG_CURRENT_DESKTOP) is NOT pulled in here:
+# bin/nook-autostart starts it once Quickshell owns the tray, so tray apps get their icon.
 [Unit]
 Description=Hyprland session (nook-tile)
 Documentation=file://%h/proj/kde-rice/tile/README.md
 BindsTo=graphical-session.target
 Wants=graphical-session-pre.target
 After=graphical-session-pre.target
-Wants=xdg-desktop-autostart.target

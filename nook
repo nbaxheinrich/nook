@@ -177,7 +177,8 @@ preview() {
             for w in plasma tile; do
               printf '  %-7s %s\n' "$w:" "$(chosen_pkgs $w | tr ',' ' ' | fold -s -w 46 | sed '2,$s/^/          /')"
             done
-            printf '  shell:  zsh and the tools you picked\n\n off: only configs and themes, no sudo, no login screen\n' ;;
+            printf '  %-7s %s\n' "shell:" "$(pkg_default $(for t in $shell; do echo "shell.$t"; done) | paste -sd' ' | fold -s -w 46 | sed '2,$s/^/          /')"
+            printf '\n off: only configs and themes, no sudo, no login screen\n' ;;
     setup)  printf ' walks you through what nook can'"'"'t guess, one question at a time;\n every step can be skipped:\n\n'
             printf '  screens    order, rotation, refresh rate → machine.lua\n  keyboard   layouts (SUPER K switches)\n  widgets    weather place, homelab hosts, calendar\n  shell      zsh as your login shell\n  browser    default browser, the nook tabs extension\n  session    Hyprland preselected on the login screen\n  wled       find your LED controllers\n\n ./nook setup STEP runs one of them alone.\n' ;;
     part:*) local w=${1#part:}; w=${w%%:*}; local pt=${1##*:}
@@ -261,12 +262,30 @@ pick_palette() {  # VAR TITLE → sets VAR
   [ -n "$out" ] && printf -v "$var" '%s' "$out"
 }
 
+# one shell tool: what it is, and whether it is installed (its packages from lib/packages.tsv)
+shell_tool_info() {
+  local t=$1 d="" ids id inst=1
+  case "$t" in
+    omz)          d="oh-my-zsh, autosuggestions, syntax highlighting"; [ -d "$HOME/.oh-my-zsh" ] || inst=0 ;;
+    prompt-nook)  d="the nook prompt: two lines, git, env, timing" ;;
+    prompt-plain) d="a plain one-line prompt" ;;
+    git)          d="git's colours and aliases in the palette" ;;
+  esac
+  ids=$(pkg_default "shell.$t")
+  [ -n "$d" ] || d=$(awk -F'\t' -v id="$(head -1 <<<"$ids")" '$1 == id { print $4 }' "$PKG_TSV")
+  for id in $ids; do pkg_installed "$id" || inst=0; done
+  [ "$inst" = 1 ] && d="$d · installed"
+  printf '%s' "$d"
+}
+
 pick_shell() {
-  local out key sel t
+  local out key sel t info=()
+  local tools="zsh omz prompt-nook prompt-starship prompt-plain zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git yazi lazygit tldr direnv dust duf glow opencode"
+  for t in $tools; do info+=("$(shell_tool_info "$t")"); done
   while true; do
-    out=$(for t in zsh omz prompt-nook prompt-starship prompt-plain zoxide eza bat delta fd ripgrep fzf fastfetch btop cava git yazi lazygit tldr direnv dust duf glow opencode; do
+    out=$(i=0; for t in $tools; do
             [[ " $shell " == *" $t "* ]] && m=$(mark 1) || m=$(mark 0)
-            printf '%s\t%s %s\n' "$t" "$m" "$t"
+            printf '%s\t%s %-16s %s\n' "$t" "$m" "$t" "$(dim "${info[$i]}")"; i=$((i + 1))
           done; printf 'palette\t  palette   %s\n' "$(dim "$shell_palette")"; printf 'done\t\e[38;2;79;216;207m✓ done\e[0m\n')
     out=$(printf '%s\n' "$out" | "${FZF[@]}" --expect=space --border-label=' shell ' \
             --header='space / ⏎ toggle · prompt: pick one · esc back' \
@@ -291,7 +310,7 @@ tui() {
     case "$(distro_family)" in fedora) sudo dnf install -y fzf ;; debian) sudo apt-get install -y fzf ;;
       arch) sudo pacman -S --needed --noconfirm fzf ;; suse) sudo zypper install -y fzf ;; *) die "install fzf by hand" ;; esac
   }
-  export -f preview commands mark dim chosen_pkgs part_spec in_list plasma_flags part_desc pkg_rows pkg_names pkg_installed pkg_has_name pkg_family distro_family have
+  export -f preview commands mark dim chosen_pkgs part_spec in_list plasma_flags part_desc pkg_rows pkg_default pkg_names pkg_installed pkg_has_name pkg_family distro_family have
   export NOOK PKG_TSV TILE_ALL PLASMA_ALL plasma tile shell_on login deps wled plasma_palette tile_palette shell_palette login_palette shell tile_parts plasma_parts pkg_off pkg_extra
   local out key sel
   while true; do

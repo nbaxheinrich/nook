@@ -4,7 +4,7 @@
 #   pkg_names ID…         this distro's package names for them (@specials included)
 #   pkg_installed ID      true when all of its packages are there
 #   pkg_install ID…       installs them (sudo); @vt323 is downloaded, other @… are left to the caller
-# A PART is plasma, tile.<part> or tile (= every tile part).
+# A PART is plasma, tile.<part>, shell.<tool>, or tile / shell for all of theirs.
 
 PKG_TSV="$REPO/lib/packages.tsv"
 
@@ -37,6 +37,8 @@ pkg_has_name() {  # one distro package name, or @vt323
   case "$1" in
     @vt323) fc-list 2>/dev/null | grep VT323 >/dev/null ;;
     @quickshell) have qs ;;
+    @lazygit) have lazygit ;;
+    @opencode) have opencode ;;
     @*) return 1 ;;
     *) case "$(distro_family)" in
          fedora|suse) rpm -q --whatprovides "$1" >/dev/null 2>&1 ;;
@@ -62,7 +64,11 @@ pkg_install() {
   if [ ${#names[@]} -gt 0 ]; then
     case "$(distro_family)" in
       fedora) sudo dnf install -y --skip-unavailable "${names[@]}" >&2 ;;
-      debian) sudo apt-get install -y "${names[@]}" >&2 ;;
+      debian) local okn=()   # one missing package would stop apt; skip it and say so
+              for n in "${names[@]}"; do
+                apt-cache show "$n" >/dev/null 2>&1 && okn+=("$n") || warn "$n is not in apt; skipped"
+              done
+              [ ${#okn[@]} -eq 0 ] || sudo apt-get install -y "${okn[@]}" >&2 ;;
       arch)   sudo pacman -S --needed --noconfirm "${names[@]}" >&2 ;;
       suse)   sudo zypper install -y "${names[@]}" >&2 ;;
       *)      warn "unknown distro; install by hand: ${names[*]}" ;;

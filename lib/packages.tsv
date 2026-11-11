@@ -1,9 +1,11 @@
 # Every package a nook part can install, one per line, so ./nook can offer each one on its own.
 # Columns (tab separated): id · parts · on · what it is for · fedora · debian · arch · suse
-#   parts  which parts want it: plasma, tile.<part> (tile.hypr, tile.shell …), several with commas
+#   parts  which parts want it: plasma, tile.<part> (tile.hypr, tile.shell …), shell.<tool>
+#          (shell.zoxide …: one switch per tool in ./nook → shell), several with commas
 #   on     1 = picked by default when its part is picked, 0 = offered but off
 #   names  the distro's package name(s), space separated; - = not there (install by hand);
-#          @name = done by nook itself (@vt323 is downloaded, @quickshell built on Ubuntu)
+#          @name = done by nook itself (@vt323 is downloaded, @quickshell built on Ubuntu,
+#          @lazygit from COPR atim/lazygit, @opencode from npm or its installer)
 # Hyprland comes from COPR sdegler/hyprland (Fedora) or PPA cppiber/hyprland (Ubuntu); the
 # installer enables those only when a package from them is picked.
 hyprland	tile.hypr	1	the compositor, 0.57 or newer	hyprland	hyprland	-	-
@@ -17,7 +19,7 @@ nm-editor	tile.shell	0	the net tab's "settings" button (without it: nmtui in a t
 hyprlock	tile.lock	1	the lock screen	hyprlock	hyprlock	-	-
 hypridle	tile.lock	1	locks and turns the screens off when you are away	hypridle	hypridle	-	-
 kitty	tile.term	1	the terminal (SUPER ⏎)	kitty	kitty	kitty	kitty
-btop	tile.term	1	system monitor (SUPER ⇧ ⏎)	btop	btop	btop	btop
+btop	tile.term,shell.btop	1	system monitor (SUPER ⇧ ⏎)	btop	btop	btop	btop
 mako	tile.notify	1	notifications	mako	mako-notifier	mako	mako
 qt6ct	tile.look	1	Qt apps (Dolphin …) in the palette	qt6ct	qt6ct	qt6ct	qt6ct
 grim	tile.tools	1	screenshots (nook-shot, Print)	grim	grim	grim	grim
@@ -25,12 +27,30 @@ slurp	tile.tools	1	pick a region for screenshots	slurp	slurp	slurp	slurp
 wl-clipboard	tile.tools	1	screenshots and the launcher to the clipboard	wl-clipboard	wl-clipboard	wl-clipboard	wl-clipboard
 jetbrains-mono	tile.look,plasma	1	JetBrains Mono, the font of everything	jetbrains-mono-fonts-all	fonts-jetbrains-mono	ttf-jetbrains-mono	jetbrains-mono-fonts
 vt323	tile.look,plasma	1	VT323 pixel font for headings (from Google Fonts)	@vt323	@vt323	@vt323	@vt323
-fzf	plasma	1	the fuzzy finder behind this menu and the shell's Ctrl+R	fzf	fzf	fzf	fzf
+fzf	plasma,shell.fzf	1	the fuzzy finder behind this menu and the shell's Ctrl+R	fzf	fzf	fzf	fzf
 rsvg	plasma	1	renders the wallpaper with the key cheat-sheet	librsvg2-tools	librsvg2-bin	librsvg	rsvg-convert
 alacritty	plasma	1	the default terminal in Plasma	alacritty	alacritty	alacritty	alacritty
 konsole	plasma	1	the fallback terminal (Ctrl+Alt+T)	konsole	konsole	konsole	konsole
 kde-cli-tools	plasma	1	kwriteconfig6 and friends, which apply the theme	kde-cli-tools	kde-cli-tools	-	-
-git	plasma	1	fetches Krohnkite and themes	git	git	git	git
+git	plasma,shell.omz,shell.prompt-nook,shell.prompt-plain,shell.git	1	fetches Krohnkite, themes and oh-my-zsh	git	git	git	git
 figlet	plasma	0	ASCII banners in the terminal	figlet	figlet	figlet	figlet
 lolcat	plasma	0	rainbow colours for them	lolcat	lolcat	lolcat	lolcat
 toilet	plasma	0	more banner fonts	toilet	toilet	toilet	toilet
+zsh	shell.zsh	1	the shell the nook terminals start	zsh	zsh	zsh	zsh
+starship	shell.prompt-starship	1	the starship prompt	starship	starship	starship	starship
+zoxide	shell.zoxide	1	cd that learns your folders (cd proj → ~/code/proj)	zoxide	zoxide	zoxide	zoxide
+eza	shell.eza	1	ls with git status and colours	eza	eza	eza	eza
+bat	shell.bat	1	cat with syntax highlighting, coloured man pages	bat	bat	bat	bat
+delta	shell.delta	1	git diffs side by side, highlighted	git-delta	git-delta	git-delta	git-delta
+fd	shell.fd	1	a faster, simpler find	fd-find	fd-find	fd	fd
+ripgrep	shell.ripgrep	1	searches file contents (rg)	ripgrep	ripgrep	ripgrep	ripgrep
+fastfetch	shell.fastfetch	1	system info when a terminal opens	fastfetch	fastfetch	fastfetch	fastfetch
+cava	shell.cava	1	audio visualiser in the terminal	cava	cava	cava	cava
+yazi	shell.yazi	1	file manager in the terminal (y)	yazi	yazi	yazi	yazi
+lazygit	shell.lazygit	1	git in a terminal UI (lg)	@lazygit	lazygit	lazygit	lazygit
+tealdeer	shell.tldr	1	short examples for commands (tldr)	tealdeer	tealdeer	tealdeer	tealdeer
+direnv	shell.direnv	1	per-folder environments (.envrc)	direnv	direnv	direnv	direnv
+dust	shell.dust	1	what fills your disk	du-dust	du-dust	dust	du-dust
+duf	shell.duf	1	free space on every disk	duf	duf	duf	duf
+glow	shell.glow	1	reads markdown in the terminal (md)	glow	glow	glow	glow
+opencode	shell.opencode	1	coding agent in the terminal (oc), not a distro package	@opencode	@opencode	@opencode	@opencode

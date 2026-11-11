@@ -251,6 +251,7 @@ link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
 link "$TILE/bin/nook-display"        "$HOME/.local/bin/nook-display"
 link "$TILE/bin/nook-lockclock"      "$HOME/.local/bin/nook-lockclock"
 link "$TILE/bin/nook-feed"           "$HOME/.local/bin/nook-feed"
+link "$TILE/bin/nook-wired"          "$HOME/.local/bin/nook-wired"
 # widget settings (hosts, CalDAV, weather place) are personal: copied once, never overwritten
 if [ ! -e "$CFG/nook/widgets.conf" ]; then
   install -Dm644 "$TILE/config/widgets.example.conf" "$CFG/nook/widgets.conf"

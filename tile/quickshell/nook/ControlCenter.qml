@@ -1,12 +1,17 @@
-// The control center: everything extra, in the launcher's style, above the bar's right end.
+// The control center: everything extra, in the launcher's style, above the clock on the bar's right.
 //   [ audio ]  output and input device, volume, mute, a mixer per app
-//   [ net ]    wifi on/off and networks (NetworkManager), wired links
+//   [ net ]    wired links and their profiles (bin/nook-wired), wifi on/off and networks
 //   [ bt ]     bluetooth on/off, scan, devices with connect and battery
 //   [ apps ]   background apps (the tray) as a list, and what's playing
 //   [ nook ]   what the bar and the desktop show (Settings.qml), homelab hosts, weather place
-// Opened from the bar (vol → audio, net/bt → net or bt, tray → apps, right-click λ nook → nook),
-// SUPER A, or IPC:
-//   qs -c nook ipc call control toggle [audio|net|bt|apps|nook]
+// Opened from the bar (a click on the clock, right-click λ nook → nook), SUPER A (last tab),
+// SUPER N (net), SUPER ⇧ B (bt), or IPC:
+//   qs -c nook ipc call control toggle audio|net|bt|apps|nook      … control last
+//
+// All of it works from the keyboard: ↑↓ (or j k) move the focus, ⏎ / space press, ←→ change a
+// level, del forgets / removes, m opens a tray app's menu, tab ⇧tab or 1‥5 switch tabs, esc closes.
+// Each focusable part has a navKey; rows are rebuilt whenever their list changes (wifi signal,
+// nmcli polls), and a rebuilt row with the focused key takes the focus back.
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -35,6 +40,7 @@ Scope {
     IpcHandler {
         target: "control"
         function toggle(tab: string): void { Ui.openControl(tab || Ui.controlTab) }
+        function last(): void { Ui.toggleControl() }
         function close(): void { Ui.controlOpen = false }
         function rescan(): void { nm.running = true }
     }
@@ -52,17 +58,51 @@ Scope {
         return (p["application.name"] || p["node.name"] || n?.name || "app").toLowerCase();
     }
 
-    // ── wired links: Quickshell's network module only knows wifi ──
-    property var wired: []
+    // ── wired links and profiles: Quickshell's network module only knows wifi, so bin/nook-wired
+    //    asks nmcli. A profile bound to a MAC / interface goes to its own adapter, any other one to
+    //    wiredTarget (the [on <dev>] button cycles through the adapters with a cable). ──
+    readonly property string wiredBin: Quickshell.env("HOME") + "/.local/bin/nook-wired"
+    property var wired: []                // {dev, state, profile, mac, cable}
+    property var profiles: []             // {uuid, name, active, bound, method, address}
+    property string wiredTarget: ""
+    property string wiredBusy: ""         // uuid being switched
+    readonly property var cabled: root.wired.filter(d => d.cable)
+    readonly property string target: root.cabled.some(d => d.dev === root.wiredTarget) ? root.wiredTarget
+        : (root.cabled.find(d => d.state === "connected") ?? root.cabled[0])?.dev ?? ""
+    function cycleTarget() {
+        const i = root.cabled.findIndex(d => d.dev === root.target);
+        if (root.cabled.length) root.wiredTarget = root.cabled[(i + 1) % root.cabled.length].dev;
+    }
+    function profileNote(p) {
+        const ip = p.method === "auto" ? "dhcp" : p.method === "manual" ? (p.address || "static") : p.method === "disabled" ? "no ipv4" : p.method;
+        if (root.wiredBusy === p.uuid) return "switching…  " + ip;
+        if (p.active) return "on " + p.active + "  " + ip;
+        if (p.bound === "missing") return "adapter not here  " + ip;
+        return (p.bound ? "→ " + p.bound + "  " : "") + ip;
+    }
+    function wiredProfile(p) {
+        root.netError = "";
+        root.wiredBusy = p.uuid;
+        wiredAct.command = p.active ? [root.wiredBin, "down", p.uuid] : [root.wiredBin, "up", p.uuid].concat(root.target ? [root.target] : []);
+        wiredAct.running = true;
+    }
     Process {
         id: nm
-        command: ["nmcli", "-t", "-f", "TYPE,DEVICE,STATE,CONNECTION", "device"]
+        command: [root.wiredBin, "list"]
         stdout: StdioCollector {
-            onStreamFinished: root.wired = this.text.trim().split("\n")
-                // container veths (docker, podman) and unmanaged links aren't yours to click
-                .map(l => l.split(":")).filter(f => f[0] === "ethernet" && !/^veth/.test(f[1]) && f[2] !== "unmanaged")
-                .map(f => ({ dev: f[1], state: f[2], conn: f[3] }))
+            onStreamFinished: {
+                try {
+                    const j = JSON.parse(this.text);
+                    root.wired = j.devices;
+                    root.profiles = j.profiles;
+                } catch (e) {}
+            }
         }
+    }
+    Process {
+        id: wiredAct
+        stderr: StdioCollector { onStreamFinished: if (this.text.trim() !== "") root.netError = this.text.trim().replace(/^nook-wired: /, "") }
+        onExited: { root.wiredBusy = ""; nm.running = true }
     }
     Timer { interval: 5000; repeat: true; triggeredOnStart: true; running: Ui.controlOpen && Ui.controlTab === "net"; onTriggered: nm.running = true }
 
@@ -84,6 +124,8 @@ Scope {
     }
 
     property string pskFor: ""            // the wifi network asking for its password
+    property string pskText: ""
+    property bool pskShown: false
     property string netError: ""
     property string pairingWith: ""       // bt address we paired from here: trust + connect when done
     // destructive row actions (forget, remove) need a second click within 3 s
@@ -105,6 +147,52 @@ Scope {
     function bars(v, n) { const k = Math.round(Math.max(0, Math.min(1, v)) * n); return "█".repeat(k) + "░".repeat(n - k) }
     function signal(s) { const k = Math.round(s * 4); return "▂▄▆█".slice(0, k).padEnd(4, " ") }
 
+    // ── keyboard focus ──
+    property string navKey: ""            // what has the focus, survives a rebuilt row
+    function focused(it) {
+        root.navKey = it.navKey;
+        root.reveal(it);
+    }
+    function grab(it) {
+        if (typeof it.focusIn === "function") it.focusIn();
+        else it.forceActiveFocus();
+    }
+    function restore(it) {
+        if (!Ui.controlOpen || it.navKey === "" || it.navKey !== root.navKey) return;
+        Qt.callLater(() => { if (it && it.visible) root.grab(it) });
+    }
+    // the next / previous focusable part of the open tab (the focus chain wraps)
+    function nav(forward) {
+        const from = root.focusAt(card) ?? card;
+        const n = from.nextItemInFocusChain(forward);
+        if (n && n !== card) n.forceActiveFocus();
+    }
+    function focusAt(it) {
+        if (it.activeFocus && it.activeFocusOnTab) return it;
+        for (const c of it.children) { const f = root.focusAt(c); if (f) return f; }
+        return null;
+    }
+    function focusFirst() {
+        root.navKey = "";
+        card.forceActiveFocus();
+        root.nav(true);
+        flick.contentY = 0;
+    }
+    function reveal(it) {
+        const y = it.mapToItem(body, 0, 0).y;
+        if (y - 8 < flick.contentY) flick.contentY = Math.max(0, y - 8);
+        else if (y + it.height + 8 > flick.contentY + flick.height)
+            flick.contentY = Math.min(Math.max(0, flick.contentHeight - flick.height), y + it.height + 8 - flick.height);
+    }
+    function nextTab(step) {
+        const i = root.tabs.findIndex(t => t.id === Ui.controlTab);
+        Ui.controlTab = root.tabs[(i + step + root.tabs.length) % root.tabs.length].id;
+    }
+    Connections {
+        target: Ui
+        function onControlTabChanged() { if (Ui.controlOpen) Qt.callLater(root.focusFirst) }
+    }
+
     // ── small parts in the design system's look ──
     component Mono: Text {
         color: Theme.ink
@@ -120,24 +208,33 @@ Scope {
         Layout.topMargin: 6
         Layout.bottomMargin: 2
     }
-    // [ text ] button: outlined in its hue, filled when on
+    // [ text ] button: outlined in its hue, filled when on; ⏎ / space press it
     component Btn: Rectangle {
         id: btn
         property string text
         property color hue: Theme.cyan
         property bool on: false
+        property bool nav: true               // false: reached another way (tabs, row actions)
+        property string navKey: nav ? "btn:" + text : ""
         signal clicked()
+        activeFocusOnTab: nav
+        onActiveFocusChanged: if (activeFocus) root.focused(btn)
+        Component.onCompleted: root.restore(btn)
+        Keys.onPressed: e => {
+            if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) { btn.clicked(); e.accepted = true; }
+        }
         implicitWidth: bt_.implicitWidth + 16
         implicitHeight: 22
         radius: Theme.radiusSm
-        color: on ? hue : btnArea.containsMouse ? Theme.soft(hue) : "transparent"
-        border.width: 1
-        border.color: hue
+        color: on ? hue : btnArea.containsMouse || activeFocus ? Theme.soft(hue) : "transparent"
+        border.width: activeFocus ? 2 : 1
+        border.color: activeFocus ? Theme.cyan : hue
         Mono { id: bt_; anchors.centerIn: parent; text: btn.text; color: btn.on ? Theme.onAccent : btn.hue; font.pixelSize: Theme.small; font.bold: btn.on }
         MouseArea { id: btnArea; anchors.fill: parent; hoverEnabled: true; onClicked: btn.clicked() }
     }
     // a selectable row: [•] name ........ note, cyan ring when it's the current one
     // An optional [action] button at the end (forget, remove …) sits on top of the row's click.
+    // Keys: ⏎ / space = click, del = the action.
     component Row: Rectangle {
         id: row
         property string name
@@ -146,19 +243,27 @@ Scope {
         property bool current: false
         property string action: ""
         property color actionHue: Theme.orange
+        property string navKey: "row:" + name
         signal clicked()
         signal actionClicked()
+        activeFocusOnTab: true
+        onActiveFocusChanged: if (activeFocus) root.focused(row)
+        Component.onCompleted: root.restore(row)
+        Keys.onPressed: e => {
+            if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) { row.clicked(); e.accepted = true; }
+            else if ((e.key === Qt.Key_Delete || e.key === Qt.Key_Backspace) && row.action !== "") { row.actionClicked(); e.accepted = true; }
+        }
         Layout.fillWidth: true
         implicitHeight: 24
         radius: Theme.radiusSm
-        color: current ? Theme.soft(Theme.cyan) : rowArea.containsMouse ? Theme.bg300 : "transparent"
-        border.width: current ? 1 : rowArea.containsMouse ? 1 : 0
-        border.color: current ? Theme.cyan : Theme.line
+        color: current ? Theme.soft(Theme.cyan) : rowArea.containsMouse || activeFocus ? Theme.bg300 : "transparent"
+        border.width: activeFocus ? 2 : current || rowArea.containsMouse ? 1 : 0
+        border.color: current || activeFocus ? Theme.cyan : Theme.line
         MouseArea { id: rowArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: row.clicked() }
         RowLayout {
             anchors { fill: parent; leftMargin: 6; rightMargin: 4 }
             spacing: 8
-            Mono { text: row.current ? "[•]" : "[ ]"; color: row.current ? Theme.cyan : Theme.faint }
+            Mono { text: row.current ? "[•]" : row.activeFocus ? "[>]" : "[ ]"; color: row.current || row.activeFocus ? Theme.cyan : Theme.faint }
             Mono { text: row.name; color: row.hue; Layout.maximumWidth: 230 }
             Mono { text: ".".repeat(80); color: Theme.faint; Layout.fillWidth: true; clip: true; elide: Text.ElideNone }
             Mono { text: row.note; color: Theme.muted; font.pixelSize: Theme.small }
@@ -166,6 +271,7 @@ Scope {
                 visible: row.action !== ""
                 text: row.action
                 hue: row.actionHue
+                nav: false
                 implicitHeight: 18
                 onClicked: row.actionClicked()
             }
@@ -178,11 +284,20 @@ Scope {
         property string note
         property bool on: true
         property color hue: Theme.red
+        property string navKey: "chk:" + name
         signal toggled()
+        activeFocusOnTab: true
+        onActiveFocusChanged: if (activeFocus) root.focused(chk)
+        Component.onCompleted: root.restore(chk)
+        Keys.onPressed: e => {
+            if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) { chk.toggled(); e.accepted = true; }
+        }
         Layout.fillWidth: true
         implicitHeight: 22
         radius: Theme.radiusSm
-        color: chkArea.containsMouse ? Theme.bg300 : "transparent"
+        color: chkArea.containsMouse || activeFocus ? Theme.bg300 : "transparent"
+        border.width: activeFocus ? 1 : 0
+        border.color: Theme.cyan
         RowLayout {
             anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
             spacing: 6
@@ -192,17 +307,18 @@ Scope {
         }
         MouseArea { id: chkArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chk.toggled() }
     }
-    // a one-line text field; ⏎ accepts, esc cancels (closes when empty), tab jumps to `next`
+    // a one-line text field; ⏎ accepts, esc cancels (closes when empty), ↑↓ leave it
     component Field: Rectangle {
         id: field
         property alias text: input.text
         property string placeholder
         property bool secret: false
         property color hue: Theme.cyan
-        property Item next: null
+        property string navKey: "field:" + placeholder
         signal accepted()
         signal cancelled()
         function focusIn() { input.forceActiveFocus() }
+        Component.onCompleted: root.restore(field)
         Layout.fillWidth: true
         implicitHeight: 24
         radius: Theme.radiusSm
@@ -223,10 +339,13 @@ Scope {
             passwordCharacter: "•"
             clip: true
             selectByMouse: true
+            activeFocusOnTab: true
+            onActiveFocusChanged: if (activeFocus) root.focused(field)
             onAccepted: field.accepted()
-            // esc in an empty field falls through and closes the panel
+            // esc in an empty field falls through and closes the panel; tab switches tabs
             Keys.onEscapePressed: e => { if (text === "") e.accepted = false; else field.cancelled() }
-            Keys.onTabPressed: e => { if (field.next) field.next.focusIn(); else e.accepted = false }
+            Keys.onUpPressed: root.nav(false)
+            Keys.onDownPressed: root.nav(true)
         }
         Mono {
             anchors { fill: parent; leftMargin: 7 }
@@ -236,16 +355,37 @@ Scope {
             color: Theme.faint
         }
     }
-    // [██████░░░░] 60%: click or drag to set, scroll for ±5%
-    component Level: RowLayout {
+    // [██████░░░░] 60%: click or drag to set, scroll for ±5%; keys ←→ ±5% (⇧ ±1%), ⏎ / m mute
+    component Level: Rectangle {
         id: lvl
         property real value: 0
         property bool muted: false
         property color hue: Theme.rose
         property string name: "vol"
+        property string navKey: "lvl:" + name
         signal picked(real v)
         signal toggleMute()
+        activeFocusOnTab: true
+        onActiveFocusChanged: if (activeFocus) root.focused(lvl)
+        Component.onCompleted: root.restore(lvl)
+        Keys.onPressed: e => {
+            const step = (e.modifiers & Qt.ShiftModifier) ? 0.01 : 0.05;
+            if (e.key === Qt.Key_Left || e.key === Qt.Key_H) lvl.picked(Math.max(0, lvl.value - step));
+            else if (e.key === Qt.Key_Right || e.key === Qt.Key_L) lvl.picked(Math.min(1, lvl.value + step));
+            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space || e.key === Qt.Key_M) lvl.toggleMute();
+            else return;
+            e.accepted = true;
+        }
         Layout.fillWidth: true
+        implicitHeight: 26
+        implicitWidth: lvlRow.implicitWidth + 8
+        radius: Theme.radiusSm
+        color: activeFocus ? Theme.bg300 : "transparent"
+        border.width: activeFocus ? 1 : 0
+        border.color: Theme.cyan
+      RowLayout {
+        id: lvlRow
+        anchors { fill: parent; leftMargin: 4; rightMargin: 4 }
         spacing: 8
         Mono { text: lvl.name; color: Theme.muted; Layout.preferredWidth: 34 }
         Mono {
@@ -263,7 +403,8 @@ Scope {
             }
         }
         Mono { text: lvl.muted ? "mute" : Math.round(lvl.value * 100) + "%"; color: lvl.muted ? Theme.faint : Theme.ink; Layout.preferredWidth: 38; horizontalAlignment: Text.AlignRight }
-        Btn { text: lvl.muted ? "unmute" : "mute"; hue: Theme.orange; on: lvl.muted; onClicked: lvl.toggleMute() }
+        Btn { text: lvl.muted ? "unmute" : "mute"; hue: Theme.orange; on: lvl.muted; nav: false; onClicked: lvl.toggleMute() }
+      }
     }
 
     HyprlandFocusGrab {
@@ -278,13 +419,16 @@ Scope {
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "nook-control"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         exclusionMode: ExclusionMode.Ignore
         anchors { bottom: true; right: true }
         margins { bottom: Theme.pill + 10 + Theme.gap; right: Theme.pad }
-        implicitWidth: 520
+        implicitWidth: 580
         implicitHeight: Math.min(card.implicitHeight, (screen?.height ?? 1440) - 120) + 20
         color: "transparent"
+        onVisibleChanged: if (visible) focusTimer.restart()
+        // the layer surface takes keyboard focus a moment after it maps
+        Timer { id: focusTimer; interval: 50; onTriggered: root.focusFirst() }
 
         RectangularShadow {
             anchors.fill: card
@@ -296,7 +440,7 @@ Scope {
         Rectangle {
             id: card
             x: 10; y: 10
-            width: 500
+            width: 560
             height: parent.height - 20
             implicitHeight: body.implicitHeight + 2
             radius: Theme.radius
@@ -305,13 +449,21 @@ Scope {
             border.color: Theme.cyan
             clip: true
             focus: true
-            Keys.onEscapePressed: Ui.controlOpen = false
-            Keys.onTabPressed: {
-                const i = root.tabs.findIndex(t => t.id === Ui.controlTab);
-                Ui.controlTab = root.tabs[(i + 1) % root.tabs.length].id;
+            // whatever the focused part didn't take ends up here
+            Keys.onPressed: e => {
+                const k = e.key;
+                if (k === Qt.Key_Escape) Ui.controlOpen = false;
+                else if (k === Qt.Key_Tab) root.nextTab(1);
+                else if (k === Qt.Key_Backtab) root.nextTab(-1);
+                else if (k === Qt.Key_Down || k === Qt.Key_J) root.nav(true);
+                else if (k === Qt.Key_Up || k === Qt.Key_K) root.nav(false);
+                else if (k >= Qt.Key_1 && k < Qt.Key_1 + root.tabs.length) Ui.controlTab = root.tabs[k - Qt.Key_1].id;
+                else return;
+                e.accepted = true;
             }
 
             Flickable {
+                id: flick
                 anchors.fill: parent
                 contentHeight: body.implicitHeight
                 boundsBehavior: Flickable.StopAtBounds
@@ -334,8 +486,10 @@ Scope {
                             model: root.tabs
                             Btn {
                                 required property var modelData
-                                text: modelData.id
+                                required property int index
+                                text: (index + 1) + " " + modelData.id
                                 hue: modelData.hue
+                                nav: false
                                 on: Ui.controlTab === modelData.id
                                 onClicked: Ui.controlTab = modelData.id
                             }
@@ -363,6 +517,7 @@ Scope {
                             model: root.sinks
                             Row {
                                 required property var modelData
+                                navKey: "sink:" + modelData.id
                                 name: root.label(modelData)
                                 note: modelData === Pipewire.defaultAudioSink ? "default" : ""
                                 current: modelData === Pipewire.defaultAudioSink
@@ -384,6 +539,7 @@ Scope {
                             model: root.sources
                             Row {
                                 required property var modelData
+                                navKey: "source:" + modelData.id
                                 name: root.label(modelData)
                                 note: modelData === Pipewire.defaultAudioSource ? "default" : ""
                                 current: modelData === Pipewire.defaultAudioSource
@@ -397,6 +553,7 @@ Scope {
                             model: root.streams
                             Level {
                                 required property var modelData
+                                navKey: "stream:" + modelData.id
                                 name: root.appName(modelData).slice(0, 4)
                                 hue: Theme.rose
                                 value: modelData.audio?.volume ?? 0
@@ -421,7 +578,8 @@ Scope {
                             Row {
                                 required property var modelData
                                 readonly property bool up: modelData.state === "connected"
-                                name: modelData.dev + (modelData.conn ? "  " + modelData.conn : "")
+                                navKey: "wired:" + modelData.dev
+                                name: modelData.dev + (modelData.profile ? "  " + modelData.profile : "")
                                 readonly property bool cable: modelData.state !== "unavailable"
                                 note: cable ? modelData.state : "no cable"
                                 current: up
@@ -430,6 +588,36 @@ Scope {
                                 actionHue: up ? Theme.orange : Theme.blue
                                 onClicked: if (cable) actionClicked()
                                 onActionClicked: root.nmcli(["device", up ? "disconnect" : "connect", modelData.dev])
+                            }
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: root.profiles.length > 0
+                            Label { text: "NET // PROFILES · " + root.profiles.length }
+                            Item { Layout.fillWidth: true }
+                            Btn {
+                                visible: root.cabled.length > 0
+                                navKey: "btn:wired-target"
+                                text: "on " + root.target + (root.cabled.length > 1 ? "  ⇄" : "")
+                                hue: Theme.blue
+                                onClicked: root.cycleTarget()
+                            }
+                        }
+                        Repeater {
+                            model: root.profiles
+                            Row {
+                                required property var modelData
+                                readonly property bool missing: modelData.bound === "missing"
+                                navKey: "profile:" + modelData.uuid
+                                name: modelData.name
+                                note: root.profileNote(modelData)
+                                current: modelData.active !== ""
+                                hue: current ? Theme.ink : missing ? Theme.faint : Theme.blue
+                                onClicked: {
+                                    if (missing && !current) root.netError = modelData.name + ": its adapter isn't plugged in";
+                                    else if (root.wiredBusy === "") root.wiredProfile(modelData);
+                                }
                             }
                         }
 
@@ -476,6 +664,7 @@ Scope {
                                 }
 
                                 Row {
+                                    navKey: "wifi:" + wrow.ssid
                                     name: wrow.ssid
                                     note: (wrow.busy ? "connecting…  " : wrow.modelData.connected ? "connected  " : wrow.modelData.known ? "known  " : "")
                                           + (wrow.open ? "open " : "") + root.signal(wrow.modelData.signalStrength)
@@ -487,7 +676,7 @@ Scope {
                                         root.netError = "";
                                         if (wrow.modelData.connected) wrow.modelData.disconnect();
                                         else if (wrow.modelData.known || wrow.open) wrow.modelData.connect();
-                                        else root.pskFor = wrow.asking ? "" : wrow.modelData.name;
+                                        else { root.pskText = ""; root.pskFor = wrow.asking ? "" : wrow.modelData.name; }
                                     }
                                     onActionClicked: { if (root.confirm("wifi:" + wrow.ssid)) wrow.modelData.forget() }
                                 }
@@ -497,10 +686,14 @@ Scope {
                                     Layout.leftMargin: 30
                                     Layout.bottomMargin: 4
                                     spacing: 6
-                                    onVisibleChanged: if (visible) { psk.text = ""; psk.focusIn() }
+                                    onVisibleChanged: if (visible) psk.focusIn()
                                     Mono { text: "λ psk >"; color: Theme.aqua }
+                                    // the row is rebuilt as signals change; the typed text is kept in root
                                     Field {
                                         id: psk
+                                        navKey: "psk:" + wrow.ssid
+                                        text: root.pskText
+                                        onTextChanged: root.pskText = text
                                         secret: !showPsk.on
                                         hue: Theme.blue
                                         placeholder: "password"
@@ -508,7 +701,7 @@ Scope {
                                                     else root.netError = "a wifi password has at least 8 characters"
                                         onCancelled: root.pskFor = ""
                                     }
-                                    Btn { id: showPsk; text: "show"; hue: Theme.faint; onClicked: on = !on }
+                                    Btn { id: showPsk; text: "show"; hue: Theme.faint; on: root.pskShown; onClicked: root.pskShown = !root.pskShown }
                                     Btn { text: "join"; hue: Theme.blue; on: psk.text.length >= 8; onClicked: psk.accepted() }
                                 }
                             }
@@ -520,7 +713,7 @@ Scope {
                             color: Theme.orange; font.pixelSize: Theme.small; wrapMode: Text.Wrap
                         }
                         Mono {
-                            text: "click: connect / disconnect · new networks ask for the password here"
+                            text: "⏎ / click: connect · profiles go to their own adapter, else [on …] · del: forget"
                             color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
                         }
                     }
@@ -557,6 +750,7 @@ Scope {
                                 id: brow
                                 required property var modelData
                                 readonly property bool connecting: modelData.state === BluetoothDeviceState.Connecting
+                                navKey: "bt:" + modelData.address
                                 Connections {
                                     target: brow.modelData
                                     // paired from here: trust it (reconnects by itself later) and connect
@@ -593,7 +787,7 @@ Scope {
                             text: "  no devices · press scan"; color: Theme.faint; font.pixelSize: Theme.small
                         }
                         Mono {
-                            text: "click: connect / disconnect · new devices pair and connect (scan first)"
+                            text: "⏎ / click: connect / disconnect · del: forget · new devices pair and connect (scan first)"
                             color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
                         }
                     }
@@ -628,6 +822,7 @@ Scope {
                                 model: Settings.bar
                                 Check {
                                     required property var modelData
+                                    navKey: modelData.id
                                     name: modelData.name; note: modelData.note
                                     on: Settings.shown(modelData.id)
                                     hue: Theme.red
@@ -646,6 +841,7 @@ Scope {
                                 model: Settings.widgets.concat(Settings.desk)
                                 Check {
                                     required property var modelData
+                                    navKey: modelData.id
                                     name: modelData.name.toLowerCase(); note: modelData.note
                                     on: Settings.shown(modelData.id)
                                     hue: Theme.aqua
@@ -659,6 +855,7 @@ Scope {
                             model: Feeds.conf.srv ?? []
                             Row {
                                 required property var modelData
+                                navKey: "srv:" + modelData.name
                                 readonly property var live: (Feeds.srv.hosts ?? []).find(h => h.name === modelData.name) ?? null
                                 name: modelData.name
                                 note: modelData.host + (live ? (live.up ? "  ● " + Math.round(live.ms) + "ms" : "  ● down") : "")
@@ -671,8 +868,8 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 6
-                            Field { id: newName; placeholder: "name"; Layout.preferredWidth: 120; Layout.fillWidth: false; next: newHost; onAccepted: newHost.focusIn(); onCancelled: text = "" }
-                            Field { id: newHost; placeholder: "host  or  host:port"; next: newName; onAccepted: nookTab.addHost(); onCancelled: text = "" }
+                            Field { id: newName; placeholder: "name"; Layout.preferredWidth: 120; Layout.fillWidth: false; onAccepted: newHost.focusIn(); onCancelled: text = "" }
+                            Field { id: newHost; placeholder: "host  or  host:port"; onAccepted: nookTab.addHost(); onCancelled: text = "" }
                             Btn { text: (Feeds.conf.srv ?? []).some(h => h.name === newName.text.trim()) ? "save" : "add"; hue: Theme.aqua; onClicked: nookTab.addHost() }
                         }
 
@@ -699,7 +896,7 @@ Scope {
                         }
                         Mono {
                             Layout.fillWidth: true
-                            text: "click: on / off · a host row fills the form · kept in ~/.config/nook/shell.json and " + (Feeds.conf.path ?? "widgets.conf")
+                            text: "⏎ / click: on / off · a host row fills the form, del removes it · kept in ~/.config/nook/shell.json and " + (Feeds.conf.path ?? "widgets.conf")
                             color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6; wrapMode: Text.Wrap
                         }
                     }
@@ -718,10 +915,32 @@ Scope {
                                 id: trow
                                 required property var modelData
                                 required property int index
+                                readonly property string navKey: "tray:" + modelData.id
+                                function openMenu(x, y) {
+                                    const p = trow.mapToItem(null, x, y);
+                                    trow.modelData.display(panel, p.x, p.y);
+                                }
+                                function run() {
+                                    if (trow.modelData.onlyMenu) { trow.openMenu(30, trow.height); return; }
+                                    trow.modelData.activate();
+                                    Ui.controlOpen = false;
+                                }
+                                // ⏎ opens the app, m / menu key its menu
+                                activeFocusOnTab: true
+                                onActiveFocusChanged: if (activeFocus) root.focused(trow)
+                                Component.onCompleted: root.restore(trow)
+                                Keys.onPressed: e => {
+                                    if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) trow.run();
+                                    else if (e.key === Qt.Key_M || e.key === Qt.Key_Menu) trow.openMenu(30, trow.height);
+                                    else return;
+                                    e.accepted = true;
+                                }
                                 Layout.fillWidth: true
                                 implicitHeight: 26
                                 radius: Theme.radiusSm
-                                color: tArea.containsMouse ? Theme.bg300 : "transparent"
+                                color: tArea.containsMouse || activeFocus ? Theme.bg300 : "transparent"
+                                border.width: activeFocus ? 2 : 0
+                                border.color: Theme.cyan
                                 RowLayout {
                                     anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
                                     spacing: 8
@@ -740,15 +959,7 @@ Scope {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                    onClicked: m => {
-                                        if (m.button === Qt.RightButton || trow.modelData.onlyMenu) {
-                                            const p = trow.mapToItem(null, m.x, m.y);
-                                            trow.modelData.display(panel, p.x, p.y);
-                                        } else {
-                                            trow.modelData.activate();
-                                            Ui.controlOpen = false;
-                                        }
-                                    }
+                                    onClicked: m => m.button === Qt.RightButton ? trow.openMenu(m.x, m.y) : trow.run()
                                 }
                             }
                         }
@@ -769,7 +980,7 @@ Scope {
                             }
                         }
                         Mono {
-                            text: "click: open · right-click: its menu"
+                            text: "⏎ / click: open · m / right-click: its menu"
                             color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
                         }
                     }
@@ -778,7 +989,7 @@ Scope {
                     Mono {
                         Layout.margins: 10
                         Layout.leftMargin: 14
-                        text: "tab next · esc close · SUPER A"
+                        text: "↑↓ move · ⏎ press · ←→ level · del forget · tab / 1‥5 tabs · esc · SUPER A / N / ⇧B"
                         color: Theme.faint; font.pixelSize: Theme.label
                     }
                 }

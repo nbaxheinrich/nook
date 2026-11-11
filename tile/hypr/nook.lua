@@ -252,7 +252,9 @@ local function MS(k) return mod .. " + SHIFT + " .. k end
 -- apps
 bind(M("RETURN"),  hl.dsp.exec_cmd(term),              "apps: terminal")
 bind(M("SPACE"),   hl.dsp.exec_cmd(menu),              "apps: hack menu")
-bind(M("A"),       hl.dsp.exec_cmd("qs -c nook ipc call control toggle audio"), "apps: control center (sound, net, bt, background apps)")
+bind(M("A"),       hl.dsp.exec_cmd("qs -c nook ipc call control last"),         "settings: control center")
+bind(M("N"),       hl.dsp.exec_cmd("qs -c nook ipc call control toggle net"),   "settings: net · wifi, ethernet")
+bind(MS("B"),      hl.dsp.exec_cmd("qs -c nook ipc call control toggle bt"),    "settings: bluetooth")
 bind(M("E"),       hl.dsp.exec_cmd(files),             "apps: files")
 bind(M("B"),       hl.dsp.exec_cmd(browser),           "apps: browser")
 bind(MS("RETURN"), hl.dsp.exec_cmd(term .. " -e btop"), "apps: btop")
@@ -283,7 +285,7 @@ bind(M("mouse_up"),   hl.dsp.focus({ workspace = "e-1" }),                "works
 
 -- system
 bind(M("L"),     hl.dsp.exec_cmd("loginctl lock-session"),                         "system: lock")
-bind(M("K"),     hl.dsp.exec_cmd("hyprctl switchxkblayout all next && qs -c nook ipc call kb refresh"),              "system: keyboard eu ⇄ de")
+bind(M("K"),     hl.dsp.exec_cmd("hyprctl switchxkblayout all next && qs -c nook ipc call kb refresh"),              "settings: keyboard eu ⇄ de")
 -- screenshots: saved to ~/Pictures/Screenshots, copied, notified (bin/nook-shot); SUPER ⇧ S like Plasma
 bind(MS("S"),    hl.dsp.exec_cmd("nook-shot area"),                                "system: screenshot area")
 bind(MS("W"),    hl.dsp.exec_cmd("nook-shot window"),                              "system: screenshot window")

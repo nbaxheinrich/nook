@@ -10,6 +10,8 @@ Singleton {
     property string controlTab: "audio"          // audio · net · bt · apps · nook
 
     function toggleLauncher() { controlOpen = false; launcherOpen = !launcherOpen }
+    // SUPER A, a click on the clock: the control center on the tab it was last on
+    function toggleControl() { launcherOpen = false; controlOpen = !controlOpen }
     function openControl(tab) {
         launcherOpen = false;
         if (controlOpen && controlTab === tab) { controlOpen = false; return; }

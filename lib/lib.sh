@@ -17,6 +17,15 @@ warn() { printf '  %s[!!]%s %s\n' "$c_butter" "$c_off" "$*" >&2; }
 die()  { printf '  %s[xx]%s %s\n' "$c_coral" "$c_off" "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# KDE colour scheme for a palette: cocoa is Nook, others Nook<Name> (palettes/kde/), else Nook
+kde_scheme() {
+  local s="Nook${1^}"
+  [ "$1" != cocoa ] && [ -f "$REPO/palettes/kde/$s.colors" ] && echo "$s" || echo Nook
+}
+
+# Icon theme for a palette: cocoa is Nook, others Nook-<Name> (shared/icons/build.sh)
+icon_theme() { [ "$1" = cocoa ] && echo Nook || echo "Nook-${1^}"; }
+
 # Distro family: fedora | debian | arch | suse | unknown
 distro_family() {
   local id like

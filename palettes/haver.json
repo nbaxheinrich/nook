@@ -1,0 +1,47 @@
+{
+  "name": "haver",
+  "title": "Haver Night",
+  "description": "Haver & Boecker after hours: deep navy grounds, neon lime and engineering blue in several brightnesses, red only for danger",
+  "roles": {
+    "bg000": "#00040b",
+    "bg100": "#000914",
+    "bg200": "#000f20",
+    "bg300": "#00182f",
+    "line": "#15305a",
+    "ink": "#e6e9f2",
+    "muted": "#a0a7c2",
+    "faint": "#56628a",
+    "media": "#6f8cff",
+    "danger": "#ff5c5c",
+    "time": "#b8e600",
+    "files": "#7fb4ff",
+    "dev": "#9ccc00",
+    "focus": "#cdfb17",
+    "net": "#3d8bff",
+    "system": "#a8c8ff",
+    "session": "#e9ff8a",
+    "dots": "#001226"
+  },
+  "aliases": {
+    "comms": "focus",
+    "accent": "focus"
+  },
+  "ansi": [
+    "#00182f",
+    "#ff5c5c",
+    "#cdfb17",
+    "#e9ff8a",
+    "#3d8bff",
+    "#6f8cff",
+    "#7fb4ff",
+    "#a0a7c2",
+    "#56628a",
+    "#ff8a8a",
+    "#ddff66",
+    "#f2ffb8",
+    "#6fa8ff",
+    "#9fb2ff",
+    "#a8c8ff",
+    "#e6e9f2"
+  ]
+}

@@ -140,10 +140,11 @@ else
   TSRC="$NOOK_SHARE/tile-build"
   rm -rf "$TSRC"; mkdir -p "$TSRC"
   for d in hypr quickshell kitty mako qt systemd; do cp -rL "$TILE/$d" "$TSRC/$d"; done
+  install -Dm755 "$TILE/bin/nook-lockclock" "$TSRC/bin/nook-lockclock"
   python3 -I "$REPO/lib/recolor.py" --from ramen --to "$palette" "$TSRC" >/dev/null
   ok "tile recoloured ramen → $palette in ${TSRC/#$HOME/~}"
 fi
-ICONS=$([ "$palette" = ramen ] && echo Nook-Ramen || echo Nook)
+ICONS=$(icon_theme "$palette")
 
 # link SRC to DEST; an existing real file is backed up first, an old link replaced
 link() {
@@ -192,7 +193,7 @@ if on lock; then
   step "lock"
   link "$TSRC/hypr/hyprlock.conf"  "$CFG/hypr/hyprlock.conf"
   link "$TSRC/hypr/hypridle.conf"  "$CFG/hypr/hypridle.conf"
-  link "$TILE/bin/nook-lockclock"  "$HOME/.local/bin/nook-lockclock"
+  link "$TSRC/bin/nook-lockclock"  "$HOME/.local/bin/nook-lockclock"
   ok "hyprlock, hypridle"
 fi
 
@@ -209,8 +210,8 @@ python3 -I "$REPO/shared/cursors/pixelcursors.py" --all --palette="$palette" "$X
 # ── Qt apps: qt6ct with the palette's KDE colour scheme (Hyprland session only) ──
 step "qt apps"
 link "$REPO/palettes/kde/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
-install -Dm644 "$REPO/palettes/kde/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
-kscheme=$([ "$palette" = ramen ] && echo NookRamen || echo Nook)
+for f in "$REPO"/palettes/kde/*.colors; do [ "${f##*/}" = NookRamen.colors ] || install -Dm644 "$f" "$XDG_DATA_HOME/color-schemes/${f##*/}"; done
+kscheme=$(kde_scheme "$palette")
 link "$TSRC/qt/qt6ct.conf"   "$CFG/qt6ct/colors/nook-tile.conf"
 # The KDE-aware qt6ct (Fedora/Nobara) loads KDE .colors schemes, so Dolphin & co. follow too;
 # plain qt6ct (Ubuntu) only reads its own palette format.

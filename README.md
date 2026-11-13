@@ -20,6 +20,7 @@ Every part takes every **palette** (`palettes/*.json`):
 | --- | --- |
 | **cocoa** | Warm espresso-brown surfaces, cream text, nine pastels. The original Plasma rice. |
 | **ramen** | Ramen Sign: a late-night noodle shop. Neutral black and greys, nine neons, cyan focus, red accent. |
+| **haver** | Haver Night: Haver & Boecker after hours. Deep navy grounds, neon lime and engineering blue in several brightnesses, red only for danger. |
 
 Both sessions sit side by side; pick one on the login screen and it remembers your choice.
 Tested on Nobara 44 (Plasma 6.7, Hyprland 0.57.1, NVIDIA, two monitors with one portrait).

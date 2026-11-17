@@ -39,6 +39,9 @@ hl.on("hyprland.start", function()
         .. "; kbuildsycoca6 >/dev/null 2>&1; nook-session-look hyprland; { nook-autostart start & }; exec nook-shell")  -- Ramen icons for KDE apps, then the shell (restarted if it crashes)
     hl.exec_cmd("mako")                                 -- notifications
     hl.exec_cmd("hypridle")                             -- lock when idle
+    -- On Wayland the copied content lives in the app it came from: close it and the clipboard is
+    -- empty. clipman keeps the last text and serves it again when that app is gone.
+    hl.exec_cmd("command -v clipman >/dev/null && exec wl-paste -t text --watch clipman store")
 end)
 
 hl.on("hyprland.shutdown", function()

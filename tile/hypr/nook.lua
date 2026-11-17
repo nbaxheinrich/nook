@@ -69,9 +69,12 @@ end
 -- /etc/xdg/menus/applications.menu and Dolphin knows no apps (Gwenview, Okular … missing).
 hl.env("XDG_MENU_PREFIX", "plasma-")
 
-hl.env("XCURSOR_THEME", "Nook-Neon")      -- glowing pixel cursors (shared/cursors/pixelcursors.py --all)
+hl.env("XCURSOR_THEME", "Nook-Ember")     -- glowing pixel cursors, the red neon (shared/cursors/pixelcursors.py --all)
 hl.env("XCURSOR_SIZE", "16")
 hl.env("HYPRCURSOR_SIZE", "16")
+-- Nook-* are Xcursor themes. With hyprcursor on, Hyprland takes any hyprcursor theme it finds
+-- instead (a catppuccin set in ~/.icons kept coming back), so it's off: XCURSOR_THEME decides.
+hl.config({ cursor = { enable_hyprcursor = false } })
 -- Qt apps: qt6ct (the KDE-aware build) with the NookRamen colour scheme, Breeze style, Nook icons.
 -- Only this session reads ~/.config/qt6ct, so Plasma keeps its pastel Nook scheme.
 -- Plain qt6ct (Ubuntu) only hands over a QPalette, which Kirigami apps (Discover, System Settings)

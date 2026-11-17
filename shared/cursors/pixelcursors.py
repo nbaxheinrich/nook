@@ -232,21 +232,24 @@ def styles(roles):
 
 
 def parse(art, st):
-    """→ grid of (r, g, b) or None at shape resolution (outline included), the hotspot, lit mask."""
+    """→ grid of (r, g, b) or None at shape resolution (outline included), kinds, and the hotspot
+    as a point in shape pixels. A tip '@' (nothing above it or to its left: the arrow) puts the
+    hotspot on the outline's corner, the tip you see; any other '@' on its pixel's middle."""
     rows = art.strip("\n").split("\n")
     w = max(len(r) for r in rows) + 2           # 1px border each side for the outline
     h = len(rows) + 2
     fills = {"o": st["body"], "@": st["body"], "y": st["y"], "r": st["r"], "#": None}
     grid = [[None] * w for _ in range(h)]
     kind = [[""] * w for _ in range(h)]
-    hot = (1, 1)
+    hot = (1.5, 1.5)
     for y, r in enumerate(rows):
         for x, ch in enumerate(r):
             if ch in fills:
                 grid[y + 1][x + 1] = fills[ch] if ch != "#" else st["line"] if isinstance(st["line"][0], int) else st["line"][0]
                 kind[y + 1][x + 1] = "line" if ch == "#" else "accent" if ch in "yr" else "body"
             if ch == "@":
-                hot = (x + 1, y + 1)
+                tip = (x == 0 or r[x - 1] not in fills) and (y == 0 or x >= len(rows[y - 1]) or rows[y - 1][x] not in fills)
+                hot = (x, y) if tip else (x + 1.5, y + 1.5)
     line = st["line"]
     for y in range(h):
         col = line if isinstance(line[0], int) else tuple(round(a + (b - a) * y / (h - 1)) for a, b in zip(*line))
@@ -328,7 +331,7 @@ def render(grid, kind, hot, s, st):
             out.append(round(a * 255) << 24 | px[0] << 16 | px[1] << 8 | px[2])
         else:
             out.append(0)
-    return W, H, int((hot[0] + 0.5) * s) + pad, int((hot[1] + 0.5) * s) + pad, out
+    return W, H, int(hot[0] * s) + pad, int(hot[1] * s) + pad, out
 
 
 def xcursor(images):

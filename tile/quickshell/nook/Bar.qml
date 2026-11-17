@@ -68,20 +68,81 @@ Scope {
     function dispatch(lua) { Quickshell.execDetached(["hyprctl", "dispatch", lua]) }
     function openMenu() { Ui.toggleLauncher() }
 
-    // one bar module: bg-100 at 88%, 1px line, radius-md
+    // one bar module, drawn in the pill style picked in the nook tab (Settings.pillStyle):
+    //   box      bg-100 at 88%, 1px line, radius-md        round    the same as a capsule
+    //   glass    see-through, no line, a highlight on top  chip     solid dark, a coloured bar on the left
+    //   tab      rises from the screen edge, round on top  neon     no fill, a glowing outline tube
+    //   bracket  no fill, four [ ] corner marks            under    no fill, a neon underline
+    //   text     nothing at all, just the glowing text
+    // accent (λ nook, power) is solid red in the filled styles and red in the open ones;
+    // hot (its panel is open, hover) turns the outline / marks cyan.
     component Pill: Rectangle {
         id: pill
         default property alias content: row.data
-        property bool hot: false                       // cyan ring + glow (menu open, hover)
+        property bool hot: false
+        property bool accent: false
+        readonly property string look: Settings.pillStyle
+        readonly property bool filled: ["box", "round", "glass", "chip", "tab"].indexOf(look) >= 0
+        readonly property bool lit: hot || area.containsMouse
+        // an accent pill in an open style (bracket …) fills solid red while its panel is open
+        readonly property bool lamp: accent && hot && !filled
+        readonly property color edge: lamp ? Theme.red : lit ? Theme.cyan : accent ? Theme.red : Theme.line
+        // text on a pill: dark on the solid red ones, red on the open ones
+        readonly property color onPill: accent && (filled || lamp) ? Theme.onAccent : accent ? Theme.red : Theme.ink
         signal clicked(var mouse)
         signal scrolled(var wheel)
-        implicitHeight: Theme.pill
-        implicitWidth: row.implicitWidth + 20
-        radius: Theme.radius
-        color: Theme.alpha(Theme.bg100, 0.88)
-        border.width: 1
-        border.color: hot || area.containsMouse ? Theme.cyan : Theme.line
+        // tab: a little taller and sitting on the screen's edge
+        Layout.alignment: look === "tab" ? Qt.AlignBottom : Qt.AlignVCenter
+        implicitHeight: look === "tab" ? Theme.pill + 3 : Theme.pill
+        implicitWidth: row.implicitWidth + (look === "round" || look === "neon" ? 26 : look === "chip" ? 24 : look === "text" ? 8 : 20)
+        radius: look === "round" || look === "neon" ? height / 2 : look === "glass" ? 7 : look === "chip" ? 5
+              : look === "box" ? Theme.radius : 0
+        topLeftRadius: look === "tab" ? 8 : radius
+        topRightRadius: look === "tab" ? 8 : radius
+        color: lamp ? Theme.red
+             : !filled ? Theme.alpha(Theme.red, 0)
+             : accent ? (look === "glass" ? Theme.alpha(Theme.red, 0.85) : Theme.red)
+             : look === "glass" ? Theme.alpha(Theme.bg300, 0.55)
+             : look === "chip" ? Theme.bg000
+             : Theme.alpha(Theme.bg100, 0.88)
+        border.width: look === "box" || look === "round" ? (hot ? 2 : 1)
+                    : (look === "glass" || look === "chip" || look === "tab") && hot ? 1 : 0
+        border.color: edge
         Behavior on border.color { ColorAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: 150 } }
+        // glass: a faint highlight along the top
+        Rectangle {
+            visible: pill.look === "glass"
+            anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: 5; rightMargin: 5; topMargin: 1 }
+            height: 1
+            color: Qt.rgba(1, 1, 1, pill.accent ? 0.25 : 0.10)
+        }
+        // chip: a coloured bar down the left side
+        Rectangle {
+            visible: pill.look === "chip" && !pill.accent
+            anchors { left: parent.left; top: parent.top; bottom: parent.bottom; topMargin: 5; bottomMargin: 5; leftMargin: 4 }
+            width: 2; radius: 1
+            color: pill.lit ? Theme.cyan : Theme.muted
+            Behavior on color { ColorAnimation { duration: 120 } }
+        }
+        // tab: a lit line along the top
+        Rectangle {
+            visible: pill.look === "tab" && !pill.accent
+            anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: 6; rightMargin: 6 }
+            height: 1
+            color: pill.lit ? Theme.cyan : Theme.line
+        }
+        // neon: a glowing outline tube
+        Rectangle {
+            visible: pill.look === "neon"
+            anchors.fill: parent
+            radius: height / 2
+            color: "transparent"
+            border.width: pill.hot ? 2 : 1
+            border.color: pill.lit ? Theme.cyan : pill.accent ? Theme.red : Theme.alpha(Theme.cyan, 0.55)
+            layer.enabled: pill.look === "neon"
+            layer.effect: Glow { shadowColor: pill.lit ? Theme.cyan : pill.accent ? Theme.red : Theme.cyan; shadowBlur: 0.6; shadowOpacity: pill.lit || pill.accent ? 0.8 : 0.4 }
+        }
         // declared before the row so mouse areas inside the module (workspace marks, tray icons) sit on top
         MouseArea {
             id: area
@@ -90,6 +151,31 @@ Scope {
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             onClicked: m => pill.clicked(m)
             onWheel: w => pill.scrolled(w)
+        }
+        // bracket: an L in each corner
+        Repeater {
+            model: pill.look === "bracket" ? 4 : 0
+            Item {
+                required property int index
+                readonly property bool atRight: index % 2 === 1
+                readonly property bool atBottom: index >= 2
+                width: 6; height: 6
+                x: atRight ? pill.width - width : 0
+                y: atBottom ? pill.height - height : 0
+                Rectangle { width: parent.width; height: pill.hot ? 2 : 1; y: parent.atBottom ? parent.height - height : 0; color: pill.edge }
+                Rectangle { width: pill.hot ? 2 : 1; height: parent.height; x: parent.atRight ? parent.width - width : 0; color: pill.edge }
+            }
+        }
+        // under: a glowing line under the module
+        Rectangle {
+            visible: pill.look === "under"
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 4; rightMargin: 4 }
+            height: pill.hot || pill.accent ? 2 : 1
+            radius: 1
+            color: pill.lit || pill.accent ? pill.edge : Theme.muted
+            Behavior on color { ColorAnimation { duration: 120 } }
+            layer.enabled: pill.lit || pill.accent
+            layer.effect: Glow { shadowColor: pill.edge }
         }
         RowLayout { id: row; anchors.centerIn: parent; spacing: 10 }
     }
@@ -142,53 +228,106 @@ Scope {
             screen: modelData
             WlrLayershell.namespace: "nook-bar"
             anchors { bottom: true; left: true; right: true }
-            implicitHeight: Theme.bar
-            // exactly the strip: Hyprland adds gaps_out (6) on top, so windows end 6 px above it,
-            // the same as the gap between two windows. (Hyprland counts a layer's margin into its
-            // exclusive zone, so a margin here would have to come off this number.)
-            exclusiveZone: Theme.bar
+            // the strip is Theme.bar high; 14 px of room above it lets the pills' glow fade out
+            // instead of being cut off at the window's top edge. Only the strip takes clicks.
+            implicitHeight: Theme.bar + 14
+            mask: Region { item: stripArea }
+            // up to the top of the pills, not the strip: Hyprland adds gaps_out (Theme.edge) on top,
+            // so windows end Theme.edge above the pills, the same as the gap between two windows.
+            // (Hyprland counts a layer's margin into its exclusive zone, so a margin here would
+            // have to come off this number.)
+            exclusiveZone: Theme.bar - (Theme.bar - Theme.pill) / 2
             color: "transparent"
 
-            // the strip: bg-100 at 88% with a hairline on top
+            // the strip that joins the pills, in the style picked in the nook tab (Settings.stripStyle):
+            //   strip     bg-100 at 88%, hairline on top     glow   the same with a cyan neon line on top
+            //   baseline  no strip, a neon line on the bottom edge      float  nothing, the pills alone
+            readonly property string strip: Settings.stripStyle
+            Item {
+                id: stripArea
+                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                height: Theme.bar
+            }
             Rectangle {
-                anchors.fill: parent
+                anchors.fill: stripArea
+                visible: bar.strip === "strip" || bar.strip === "glow"
                 color: Theme.alpha(Theme.bg100, 0.88)
-                Rectangle { anchors { top: parent.top; left: parent.left; right: parent.right } height: 1; color: Theme.line }
+            }
+            Rectangle {
+                visible: bar.strip !== "float"
+                anchors { left: parent.left; right: parent.right }
+                y: bar.strip === "baseline" ? parent.height - height : stripArea.y
+                height: bar.strip === "strip" ? 1 : 2
+                color: bar.strip === "strip" ? Theme.line : Theme.cyan
+                opacity: bar.strip === "baseline" ? 0.8 : 1
+                layer.enabled: bar.strip !== "strip"
+                layer.effect: Glow { shadowColor: Theme.cyan; shadowBlur: 1.0; shadowOpacity: 0.9 }
             }
 
-            // ── overflow: the right side (cpu/ram, clock, power) gets at most half the bar ──
-            // left:  start + workspaces stay; the window tag takes the rest (title first, then
-            //        the whole tag, go when there's no room)
-            // right: cpu/ram goes when it doesn't fit
-            // Modules switched off in the nook tab (Settings) take no room.
-            function room(p) { return p.visible ? p.implicitWidth + Theme.gap : 0 }
-            readonly property real half: width / 2 - Theme.gap
-            readonly property real tagRoom: width - room(startPill) - room(wsPill) - room(clockPill) - room(powerPill)
-                                            - (showCpu ? room(cpuPill) : 0) - 2 * Theme.gap
+            // ── where the modules sit (Settings.barLayout): three rows, left / centre / right, and
+            //    place() moves each module into its row in order. Modules a layout leaves out wait
+            //    in the hidden pool. ──
+            readonly property var layouts: ({
+                split:  { left: ["start", "ws", "title"], center: [], right: ["cpu", "clock", "power"] },
+                center: { left: ["start", "title"], center: ["ws"], right: ["cpu", "clock", "power"] },
+                clock:  { left: ["start", "ws", "title"], center: ["clock"], right: ["cpu", "power"] },
+                island: { left: [], center: ["start", "ws", "clock", "power"], right: [] },
+                corner: { left: ["start", "ws", "clock", "power", "title"], center: [], right: ["cpu"] }
+            })
+            function place() {
+                const pills = { start: startPill, ws: wsPill, title: titlePill, cpu: cpuPill, clock: clockPill, power: powerPill };
+                const l = layouts[Settings.barLayout] ?? layouts.split;
+                for (const k in pills) pills[k].parent = pool;
+                for (const [row, ids] of [[leftRow, l.left], [centerRow, l.center], [rightRow, l.right]])
+                    for (const id of ids) pills[id].parent = row;
+            }
+            Connections { target: Settings; function onBarLayoutChanged() { bar.place() } }
+            Component.onCompleted: place()
+
+            // ── overflow: the window tag takes what's left of its side (title first, then the
+            //    whole tag, go when there's no room); cpu/ram goes when its side is full.
+            //    Modules switched off in the nook tab (Settings) take no room. ──
+            function roomIn(row, except) {
+                let w = 0;
+                for (const p of row.children) if (p !== except && p.visible) w += p.implicitWidth + Theme.gap;
+                return w;
+            }
+            readonly property bool hasCenter: centerRow.implicitWidth > 0
+            readonly property real side: hasCenter ? (width - centerRow.implicitWidth) / 2 - 2 * Theme.gap : width / 2 - Theme.gap
+            readonly property real tagRoom: (hasCenter ? side : width - roomIn(rightRow) - 2 * Theme.edge - Theme.gap)
+                                            - roomIn(leftRow, titlePill)
             readonly property real tagFixed: 20 + 4 * 10 + lb.implicitWidth + appLbl.implicitWidth + dash.implicitWidth + rb.implicitWidth
             readonly property real titleRoom: Math.min(320, tagRoom - tagFixed)
-            readonly property bool showCpu: room(clockPill) + room(powerPill) + cpuPill.implicitWidth <= half
+            readonly property bool showCpu: roomIn(rightRow, cpuPill) + cpuPill.implicitWidth <= side
 
-            RowLayout {
-                anchors.fill: parent
+            Item {
+                id: modules
+                anchors.fill: stripArea
                 anchors.leftMargin: Theme.edge
                 anchors.rightMargin: Theme.edge
                 anchors.topMargin: 1          // below the hairline
-                spacing: Theme.gap
+                RowLayout { id: leftRow;   anchors { left: parent.left; top: parent.top; bottom: parent.bottom } spacing: Theme.gap }
+                RowLayout { id: centerRow; anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; bottom: parent.bottom } spacing: Theme.gap }
+                RowLayout { id: rightRow;  anchors { right: parent.right; top: parent.top; bottom: parent.bottom } spacing: Theme.gap; layoutDirection: Qt.LeftToRight }
+            }
+
+            Item {
+                id: pool
+                visible: false
+                height: Theme.bar
 
                 // ── λ nook: solid red neon, opens the hack menu (right-click: the nook tab) ──
                 Pill {
                     id: startPill
                     visible: Settings.shown("bar.start")
-                    color: Theme.red
-                    border.color: Ui.launcherOpen || (Ui.controlOpen && Ui.controlTab === "nook") ? Theme.cyan : Theme.red
-                    border.width: Ui.launcherOpen || (Ui.controlOpen && Ui.controlTab === "nook") ? 2 : 1
+                    accent: true
+                    hot: Ui.launcherOpen || (Ui.controlOpen && Ui.controlTab === "nook")
                     // right-click: the nook tab, to pick what the bar and the desktop show
                     onClicked: m => m.button === Qt.RightButton ? Ui.openControl("nook") : root.openMenu()
-                    layer.enabled: true
+                    layer.enabled: filled || lamp
                     layer.effect: Glow { shadowColor: Theme.red; shadowBlur: 0.8; shadowOpacity: 0.7 }
-                    Text { text: "λ"; color: Theme.onAccent; font.family: Theme.pixel; font.pixelSize: 20 }
-                    Text { text: "nook"; color: Theme.onAccent; font.family: Theme.font; font.pixelSize: Theme.body; font.bold: true }
+                    Text { text: "λ"; color: startPill.onPill; font.family: Theme.pixel; font.pixelSize: 20 }
+                    Text { text: "nook"; color: startPill.onPill; font.family: Theme.font; font.pixelSize: Theme.body; font.bold: true }
                 }
 
                 // ── workspaces 1–9: on this screen = cyan bar, occupied = muted, empty = faint,
@@ -252,8 +391,6 @@ Scope {
                     Label { id: rb; text: "]"; color: Theme.faint }
                 }
 
-                Item { Layout.fillWidth: true }
-
                 // ── cpu sparkline + ram (first to go when the right side is full) ──
                 Pill {
                     id: cpuPill
@@ -266,7 +403,7 @@ Scope {
                 }
 
                 // ── clock: the overview and the control center's button. kb dot · VT323 time · date ·
-                //    battery bar. Click = control center (SUPER A), right-click = next layout (SUPER K),
+                //    battery bar. Click = control center (SUPER A), on the date = calendar (SUPER C), right-click = next layout (SUPER K),
                 //    middle-click = mute, scroll = volume ±5%. Cyan ring + glow while the panel is open. ──
                 Pill {
                     id: clockPill
@@ -274,14 +411,13 @@ Scope {
                     readonly property var sink: Pipewire.defaultAudioSink
                     readonly property bool attention: SystemTray.items.values.some(i => i.status === Status.NeedsAttention)
                     hot: Ui.controlOpen
-                    border.width: hot ? 2 : 1
                     onClicked: m => {
                         if (m.button === Qt.RightButton) root.switchKb();
                         else if (m.button === Qt.MiddleButton) { if (sink?.audio) sink.audio.muted = !sink.audio.muted }
                         else Ui.toggleControl();
                     }
                     onScrolled: w => { if (sink?.audio) sink.audio.volume = Math.max(0, Math.min(1, sink.audio.volume + (w.angleDelta.y > 0 ? 0.05 : -0.05))) }
-                    layer.enabled: hot
+                    layer.enabled: hot && filled
                     layer.effect: Glow { shadowColor: Theme.cyan; shadowBlur: 0.9; shadowOpacity: 0.6 }
                     // keyboard layout: a glowing dot, aqua = eu, gold = de; click switches (like SUPER K)
                     Item {
@@ -310,8 +446,17 @@ Scope {
                     Label {
                         // a plain date: "sa 07.11.2026" (weekday in the system language)
                         text: Qt.locale().toString(clock.date, "ddd dd.MM.yyyy").replace(/^(\S+?)\.? /, "$1 ").toLowerCase()
-                        color: Theme.ink
+                        color: dateArea.containsMouse ? Theme.gold : Theme.ink
                         font.pixelSize: Theme.body
+                        // a click on the date: the calendar (SUPER C)
+                        MouseArea {
+                            id: dateArea
+                            anchors.fill: parent
+                            anchors.margins: -4
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Ui.openControl("cal")
+                        }
                     }
                     // battery: a thin bar in its state's hue (aqua charging, gold ≤ 30 %, orange ≤ 15 %)
                     Rectangle { visible: root.hasBatt; implicitWidth: 1; implicitHeight: 14; color: Theme.line }
@@ -355,15 +500,14 @@ Scope {
                 Pill {
                     id: powerPill
                     visible: Settings.shown("bar.power")
-                    color: Theme.red
-                    border.color: Ui.launcherOpen ? Theme.cyan : Theme.red
-                    border.width: Ui.launcherOpen ? 2 : 1
+                    accent: true
+                    hot: Ui.launcherOpen
                     onClicked: m => m.button === Qt.RightButton
                         ? Quickshell.execDetached(["loginctl", "lock-session"])
                         : root.openMenu()
-                    layer.enabled: true
+                    layer.enabled: filled || lamp
                     layer.effect: Glow { shadowColor: Theme.red; shadowBlur: 0.8; shadowOpacity: 0.7 }
-                    Text { text: "⏻"; color: Theme.onAccent; font.pixelSize: 14; font.bold: true }
+                    Text { text: "⏻"; color: powerPill.onPill; font.pixelSize: 14; font.bold: true }
                 }
             }
 

@@ -12,7 +12,7 @@ python3 "$REPO/plasma/shortcuts.py" unbind "$REPO/config/shortcuts.conf" || true
 
 # kwinrulesrc / breezerc / btop.conf etc. that did not exist before get removed, the rest restored.
 for f in kdeglobals kwinrc kwinrulesrc plasmarc konsolerc kscreenlockerrc plasmashellrc \
-         fastfetch/config.jsonc cava/config btop/btop.conf alacritty/alacritty.toml; do
+         fastfetch/config.jsonc cava/config btop/btop.conf; do
   rel=".config/$f"
   if [ -e "$src/$rel" ]; then cp -a "$src/$rel" "$HOME/$rel"
   else rm -f "$HOME/$rel"; fi
@@ -64,7 +64,7 @@ rm -f "$HOME/.local/bin/nook-keys" "$HOME/.local/bin/nook-tray" "$HOME/.local/bi
       "$XDG_CONFIG_HOME/autostart/nook-tray.desktop" "$NOOK_STATE/tray-seen" \
       "$XDG_DATA_HOME/konsole/Nook.profile" "$XDG_DATA_HOME/konsole/Nook.colorscheme" \
       "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg" \
-      "$XDG_CONFIG_HOME/fastfetch/nook-logo.txt" "$XDG_CONFIG_HOME/fastfetch/candy-logo.txt" "$XDG_CONFIG_HOME/fastfetch/axolotl.jsonc" "$XDG_CONFIG_HOME/fastfetch/axolotl-logo.txt" "$XDG_CONFIG_HOME/alacritty/nook.toml" \
+      "$XDG_CONFIG_HOME/fastfetch/nook-logo.txt" "$XDG_CONFIG_HOME/fastfetch/candy-logo.txt" "$XDG_CONFIG_HOME/fastfetch/axolotl.jsonc" "$XDG_CONFIG_HOME/fastfetch/axolotl-logo.txt" "$XDG_CONFIG_HOME/fastfetch/lambda-logo.txt" "$XDG_CONFIG_HOME/alacritty/nook.toml" \
       "$XDG_DATA_HOME/kxmlgui5/konsole/konsoleui.rc" "$XDG_DATA_HOME/kxmlgui5/konsole/sessionui.rc" "$XDG_CONFIG_HOME/btop/themes/nook.theme"
 
 # shellcheck disable=SC1091

@@ -1,15 +1,16 @@
 // The control center: everything extra, in the launcher's style, above the clock on the bar's right.
+//   [ cal ]    the month (today, days with events marked) and the events of a day / the next ones
 //   [ audio ]  output and input device, volume, mute, a mixer per app
 //   [ net ]    wired links and their profiles (bin/nook-wired), wifi on/off and networks
 //   [ bt ]     bluetooth on/off, scan, devices with connect and battery
 //   [ apps ]   background apps (the tray) as a list, and what's playing
 //   [ nook ]   what the bar and the desktop show (Settings.qml), homelab hosts, weather place
 // Opened from the bar (a click on the clock, right-click λ nook → nook), SUPER A (last tab),
-// SUPER N (net), SUPER ⇧ B (bt), or IPC:
-//   qs -c nook ipc call control toggle audio|net|bt|apps|nook      … control last
+// SUPER C (cal), SUPER N (net), SUPER ⇧ B (bt), or IPC:
+//   qs -c nook ipc call control toggle cal|audio|net|bt|apps|nook      … control last
 //
 // All of it works from the keyboard: ↑↓ (or j k) move the focus, ⏎ / space press, ←→ change a
-// level, del forgets / removes, m opens a tray app's menu, tab ⇧tab or 1‥5 switch tabs, esc closes.
+// level, del forgets / removes, m opens a tray app's menu, tab ⇧tab or 1‥6 switch tabs, esc closes.
 // Each focusable part has a navKey; rows are rebuilt whenever their list changes (wifi signal,
 // nmcli polls), and a rebuilt row with the focused key takes the focus back.
 import Quickshell
@@ -28,8 +29,18 @@ import QtQuick.Effects
 
 Scope {
     id: root
+    readonly property real k: 1.4           // size of the whole panel: fonts, rows, widths
+    // 0 → 1 while it opens, 1 → 0 while it closes; the window stays mapped until it is 0
+    property real shown: Ui.controlOpen ? 1 : 0
+    Behavior on shown {
+        NumberAnimation {
+            duration: Ui.controlOpen ? 220 : 160
+            easing.type: Ui.controlOpen ? Easing.OutCubic : Easing.InCubic
+        }
+    }
 
     readonly property var tabs: [
+        { id: "cal",   hue: Theme.gold },
         { id: "audio", hue: Theme.rose },
         { id: "net",   hue: Theme.blue },
         { id: "bt",    hue: Theme.cyan },
@@ -45,13 +56,18 @@ Scope {
         function rescan(): void { nm.running = true }
     }
 
-    // ── audio: nodes by media.class ──
+    // ── audio: nodes by kind ──
+    // Sorted by audio / isSink / isStream, not properties["media.class"]: properties stay empty
+    // until a node is tracked, and only sorted nodes got tracked, so the lists only ever held
+    // what the bar happened to track (the default sink): no mics, no apps, one output.
     readonly property var nodes: Pipewire.nodes.values
-    function cls(n) { return n?.properties?.["media.class"] ?? "" }
-    readonly property var sinks:   nodes.filter(n => cls(n) === "Audio/Sink")
-    readonly property var sources: nodes.filter(n => cls(n) === "Audio/Source")
-    readonly property var streams: nodes.filter(n => cls(n) === "Stream/Output/Audio")
-    PwObjectTracker { objects: root.sinks.concat(root.sources, root.streams) }
+    readonly property var sinks:   nodes.filter(n => n.audio && n.isSink && !n.isStream)
+    readonly property var sources: nodes.filter(n => n.audio && !n.isSink && !n.isStream)
+    readonly property var streams: nodes.filter(n => n.audio && n.isSink && n.isStream)
+    PwObjectTracker {
+        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
+            .filter(n => n).concat(root.sinks, root.sources, root.streams)
+    }
     function label(n) { return n?.nickname || n?.description || n?.name || "?" }
     function appName(n) {
         const p = n?.properties ?? {};
@@ -105,6 +121,16 @@ Scope {
         onExited: { root.wiredBusy = ""; nm.running = true }
     }
     Timer { interval: 5000; repeat: true; triggeredOnStart: true; running: Ui.controlOpen && Ui.controlTab === "net"; onTriggered: nm.running = true }
+
+    // tray items that only have a menu (Ayatana ones say so nowhere; nook-tray-menuonly checks D-Bus)
+    property var trayMenuOnly: []
+    Process {
+        id: trayProbe
+        command: ["nook-tray-menuonly"]
+        stdout: StdioCollector { onStreamFinished: root.trayMenuOnly = this.text.split("\n").filter(l => l !== "") }
+    }
+    Timer { interval: 10000; repeat: true; triggeredOnStart: true; running: Ui.controlOpen && Ui.controlTab === "apps"; onTriggered: trayProbe.running = true }
+    Connections { target: SystemTray.items; ignoreUnknownSignals: true; function onValuesChanged() { trayProbe.running = true } }
 
     readonly property var wifiDev: Networking.devices.values.find(d => d.type === DeviceType.Wifi) ?? null
     readonly property var wifiNets: (wifiDev?.networks?.values ?? []).slice()
@@ -210,12 +236,12 @@ Scope {
     component Mono: Text {
         color: Theme.ink
         font.family: Theme.font
-        font.pixelSize: 12
+        font.pixelSize: Math.round(12 * root.k)
         elide: Text.ElideRight
     }
     component Label: Mono {
         color: Theme.faint
-        font.pixelSize: Theme.label
+        font.pixelSize: Math.round(Theme.label * root.k)
         font.bold: true
         font.letterSpacing: 1.2
         Layout.topMargin: 6
@@ -237,12 +263,12 @@ Scope {
             if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) { btn.clicked(); e.accepted = true; }
         }
         implicitWidth: bt_.implicitWidth + 16
-        implicitHeight: 22
+        implicitHeight: Math.round(22 * root.k)
         radius: Theme.radiusSm
         color: on ? hue : btnArea.containsMouse || activeFocus ? Theme.soft(hue) : "transparent"
         border.width: activeFocus ? 2 : 1
         border.color: activeFocus ? Theme.cyan : hue
-        Mono { id: bt_; anchors.centerIn: parent; text: btn.text; color: btn.on ? Theme.onAccent : btn.hue; font.pixelSize: Theme.small; font.bold: btn.on }
+        Mono { id: bt_; anchors.centerIn: parent; text: btn.text; color: btn.on ? Theme.onAccent : btn.hue; font.pixelSize: Math.round(Theme.small * root.k); font.bold: btn.on }
         MouseArea { id: btnArea; anchors.fill: parent; hoverEnabled: true; onClicked: btn.clicked() }
     }
     // a selectable row: [•] name ........ note, cyan ring when it's the current one
@@ -267,7 +293,7 @@ Scope {
             else if ((e.key === Qt.Key_Delete || e.key === Qt.Key_Backspace) && row.action !== "") { row.actionClicked(); e.accepted = true; }
         }
         Layout.fillWidth: true
-        implicitHeight: 24
+        implicitHeight: Math.round(24 * root.k)
         radius: Theme.radiusSm
         color: current ? Theme.soft(Theme.cyan) : rowArea.containsMouse || activeFocus ? Theme.bg300 : "transparent"
         border.width: activeFocus ? 2 : current || rowArea.containsMouse ? 1 : 0
@@ -277,15 +303,15 @@ Scope {
             anchors { fill: parent; leftMargin: 6; rightMargin: 4 }
             spacing: 8
             Mono { text: row.current ? "[•]" : row.activeFocus ? "[>]" : "[ ]"; color: row.current || row.activeFocus ? Theme.cyan : Theme.faint }
-            Mono { text: row.name; color: row.hue; Layout.maximumWidth: 230 }
+            Mono { text: row.name; color: row.hue; Layout.maximumWidth: Math.round(230 * root.k) }
             Mono { text: ".".repeat(80); color: Theme.faint; Layout.fillWidth: true; clip: true; elide: Text.ElideNone }
-            Mono { text: row.note; color: Theme.muted; font.pixelSize: Theme.small }
+            Mono { text: row.note; color: Theme.muted; font.pixelSize: Math.round(Theme.small * root.k) }
             Btn {
                 visible: row.action !== ""
                 text: row.action
                 hue: row.actionHue
                 nav: false
-                implicitHeight: 18
+                implicitHeight: Math.round(18 * root.k)
                 onClicked: row.actionClicked()
             }
         }
@@ -306,7 +332,7 @@ Scope {
             if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) { chk.toggled(); e.accepted = true; }
         }
         Layout.fillWidth: true
-        implicitHeight: 22
+        implicitHeight: Math.round(22 * root.k)
         radius: Theme.radiusSm
         color: chkArea.containsMouse || activeFocus ? Theme.bg300 : "transparent"
         border.width: activeFocus ? 1 : 0
@@ -316,7 +342,7 @@ Scope {
             spacing: 6
             Mono { text: chk.on ? "[x]" : "[ ]"; color: chk.on ? chk.hue : Theme.faint; font.bold: chk.on }
             Mono { text: chk.name; color: chk.on ? Theme.ink : Theme.muted }
-            Mono { text: chk.note; color: Theme.faint; font.pixelSize: Theme.label; Layout.fillWidth: true }
+            Mono { text: chk.note; color: Theme.faint; font.pixelSize: Math.round(Theme.label * root.k); Layout.fillWidth: true }
         }
         MouseArea { id: chkArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chk.toggled() }
     }
@@ -333,7 +359,7 @@ Scope {
         function focusIn() { input.forceActiveFocus() }
         Component.onCompleted: root.restore(field)
         Layout.fillWidth: true
-        implicitHeight: 24
+        implicitHeight: Math.round(24 * root.k)
         radius: Theme.radiusSm
         color: Theme.bg200
         border.width: 1
@@ -347,7 +373,7 @@ Scope {
             selectionColor: field.hue
             selectedTextColor: Theme.onAccent
             font.family: Theme.font
-            font.pixelSize: 12
+            font.pixelSize: Math.round(12 * root.k)
             echoMode: field.secret ? TextInput.Password : TextInput.Normal
             passwordCharacter: "•"
             clip: true
@@ -372,6 +398,7 @@ Scope {
     component Level: Rectangle {
         id: lvl
         property real value: 0
+        readonly property real level: isNaN(value) ? 0 : value   // NaN until PipeWire has sent it
         property bool muted: false
         property color hue: Theme.rose
         property string name: "vol"
@@ -383,14 +410,14 @@ Scope {
         Component.onCompleted: root.restore(lvl)
         Keys.onPressed: e => {
             const step = (e.modifiers & Qt.ShiftModifier) ? 0.01 : 0.05;
-            if (e.key === Qt.Key_Left || e.key === Qt.Key_H) lvl.picked(Math.max(0, lvl.value - step));
-            else if (e.key === Qt.Key_Right || e.key === Qt.Key_L) lvl.picked(Math.min(1, lvl.value + step));
+            if (e.key === Qt.Key_Left || e.key === Qt.Key_H) lvl.picked(Math.max(0, lvl.level - step));
+            else if (e.key === Qt.Key_Right || e.key === Qt.Key_L) lvl.picked(Math.min(1, lvl.level + step));
             else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space || e.key === Qt.Key_M) lvl.toggleMute();
             else return;
             e.accepted = true;
         }
         Layout.fillWidth: true
-        implicitHeight: 26
+        implicitHeight: Math.round(26 * root.k)
         implicitWidth: lvlRow.implicitWidth + 8
         radius: Theme.radiusSm
         color: activeFocus ? Theme.bg300 : "transparent"
@@ -400,11 +427,11 @@ Scope {
         id: lvlRow
         anchors { fill: parent; leftMargin: 4; rightMargin: 4 }
         spacing: 8
-        Mono { text: lvl.name; color: Theme.muted; Layout.preferredWidth: 34 }
+        Mono { text: lvl.name; color: Theme.muted; Layout.preferredWidth: Math.round(34 * root.k) }
         Mono {
             id: barText
             Layout.fillWidth: true
-            text: "[" + root.bars(lvl.value, 24) + "]"
+            text: "[" + root.bars(lvl.level, 24) + "]"
             color: lvl.muted ? Theme.faint : lvl.hue
             elide: Text.ElideNone
             MouseArea {
@@ -412,10 +439,10 @@ Scope {
                 function at(x) { lvl.picked(Math.max(0, Math.min(1, (x - 7) / (barText.contentWidth - 14)))) }
                 onPressed: m => at(m.x)
                 onPositionChanged: m => { if (pressed) at(m.x) }
-                onWheel: w => lvl.picked(Math.max(0, Math.min(1, lvl.value + (w.angleDelta.y > 0 ? 0.05 : -0.05))))
+                onWheel: w => lvl.picked(Math.max(0, Math.min(1, lvl.level + (w.angleDelta.y > 0 ? 0.05 : -0.05))))
             }
         }
-        Mono { text: lvl.muted ? "mute" : Math.round(lvl.value * 100) + "%"; color: lvl.muted ? Theme.faint : Theme.ink; Layout.preferredWidth: 38; horizontalAlignment: Text.AlignRight }
+        Mono { text: lvl.muted ? "mute" : Math.round(lvl.level * 100) + "%"; color: lvl.muted ? Theme.faint : Theme.ink; Layout.preferredWidth: Math.round(38 * root.k); horizontalAlignment: Text.AlignRight }
         Btn { text: lvl.muted ? "unmute" : "mute"; hue: Theme.orange; on: lvl.muted; nav: false; onClicked: lvl.toggleMute() }
       }
     }
@@ -428,33 +455,44 @@ Scope {
 
     PanelWindow {
         id: panel
-        visible: Ui.controlOpen
+        visible: Ui.controlOpen || root.shown > 0
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "nook-control"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        WlrLayershell.keyboardFocus: Ui.controlOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { bottom: true; right: true }
-        margins { bottom: Theme.bar + Theme.edge; right: Theme.edge }
-        implicitWidth: 580
-        implicitHeight: Math.min(card.implicitHeight, (screen?.height ?? 1440) - 120) + 20
+        // bottom right, lined up with the bar: the card's right edge on the clock pill's, and Theme.edge
+        // above the bar like the gap between windows. Halo room above and to the left.
+        readonly property int halo: 56
+        readonly property int below: Theme.bar - (Theme.bar - Theme.pill) / 2 + Theme.edge   // Theme.edge above the pills
+        mask: Region { item: card }
+        implicitWidth: halo + card.width + Theme.edge
+        implicitHeight: halo + Math.min(card.implicitHeight, (screen?.height ?? 1440) - 120) + below
         color: "transparent"
         onVisibleChanged: if (visible) focusTimer.restart()
         // the layer surface takes keyboard focus a moment after it maps
         Timer { id: focusTimer; interval: 50; onTriggered: root.focusFirst() }
 
+        // the cyan halo around the card: short and soft, and the window leaves it room (halo) so
+        // it fades out instead of being cut off at the window's edge. Only the card takes clicks.
         RectangularShadow {
             anchors.fill: card
+            opacity: root.shown
+            transform: Translate { y: (1 - root.shown) * 10 }
             radius: Theme.radius
-            blur: 24
-            color: Theme.alpha(Theme.cyan, 0.45)
+            blur: 8
+            spread: 0
+            color: Theme.alpha(Theme.cyan, 0.3)
         }
 
         Rectangle {
             id: card
-            x: 10; y: 10
-            width: 560
-            height: parent.height - 20
+            opacity: root.shown
+            transform: Translate { y: (1 - root.shown) * 10 }
+            x: panel.halo; y: panel.halo
+            width: Math.round(560 * root.k)
+            height: parent.height - panel.halo - panel.below
             implicitHeight: body.implicitHeight + 2
             radius: Theme.radius
             color: Theme.bg100
@@ -493,7 +531,7 @@ Scope {
                         Layout.margins: 14
                         Layout.bottomMargin: 10
                         spacing: 6
-                        Text { text: "λ control"; color: Theme.ink; font.family: Theme.pixel; font.pixelSize: 24 }
+                        Text { text: "λ control"; color: Theme.ink; font.family: Theme.pixel; font.pixelSize: Math.round(24 * root.k) }
                         Item { Layout.fillWidth: true }
                         Repeater {
                             model: root.tabs
@@ -509,6 +547,148 @@ Scope {
                         }
                     }
                     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.line }
+
+                    // ── CAL: the month (today in gold, days with events marked), and below it the
+                    //    events of the picked day, or the next ones (CalDAV, Feeds.cal: 7 days ahead) ──
+                    ColumnLayout {
+                        id: calTab
+                        visible: Ui.controlTab === "cal"
+                        Layout.fillWidth: true
+                        Layout.margins: 14
+                        spacing: 3
+
+                        SystemClock { id: calClock; precision: SystemClock.Minutes }
+                        readonly property date today: calClock.date
+                        property int year: today.getFullYear()
+                        property int month: today.getMonth()          // 0–11
+                        property int picked: 0                        // a day key, 0 = none
+                        function key(d) { return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate() }
+                        function shift(n) {
+                            const d = new Date(year, month + n, 1);
+                            year = d.getFullYear(); month = d.getMonth(); picked = 0;
+                        }
+                        function home() { year = today.getFullYear(); month = today.getMonth(); picked = 0 }
+                        onVisibleChanged: if (visible) { home(); if (Feeds.cal.ok !== true) Feeds.refreshCal() }
+
+                        readonly property var events: Feeds.cal.ok === true ? Feeds.cal.events : []
+                        // day key → number of events
+                        readonly property var marked: {
+                            const m = {};
+                            for (const e of events) { const k = key(new Date(e.start * 1000)); m[k] = (m[k] ?? 0) + 1; }
+                            return m;
+                        }
+                        // the 6 × 7 days shown, weeks starting on Monday
+                        readonly property var cells: {
+                            const first = new Date(year, month, 1);
+                            const lead = (first.getDay() + 6) % 7;
+                            const out = [];
+                            for (let i = 0; i < 42; i++) out.push(new Date(year, month, 1 - lead + i));
+                            return out;
+                        }
+                        readonly property var shown: picked
+                            ? events.filter(e => key(new Date(e.start * 1000)) === picked)
+                            : events.slice(0, 6)
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Label { text: "CAL // " + Qt.locale().standaloneMonthName(calTab.month).toLowerCase() + " " + calTab.year }
+                            Item { Layout.fillWidth: true }
+                            Btn { text: "‹"; hue: Theme.gold; onClicked: calTab.shift(-1) }
+                            Btn { text: "today"; hue: Theme.gold; on: calTab.year === calTab.today.getFullYear() && calTab.month === calTab.today.getMonth() && !calTab.picked; onClicked: calTab.home() }
+                            Btn { text: "›"; hue: Theme.gold; onClicked: calTab.shift(1) }
+                        }
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            Layout.topMargin: 4
+                            columns: 7
+                            columnSpacing: 4
+                            rowSpacing: 2
+                            Repeater {
+                                model: 7
+                                Mono {
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: Qt.locale().dayName((index + 1) % 7, Locale.ShortFormat).replace(".", "").toLowerCase()
+                                    color: index >= 5 ? Theme.red : Theme.faint
+                                    font.pixelSize: Math.round(Theme.label * root.k)
+                                    font.bold: true
+                                }
+                            }
+                            Repeater {
+                                model: calTab.cells
+                                Rectangle {
+                                    id: cell
+                                    required property var modelData
+                                    required property int index
+                                    readonly property int k: calTab.key(modelData)
+                                    readonly property bool inMonth: modelData.getMonth() === calTab.month
+                                    readonly property bool isToday: k === calTab.key(calTab.today)
+                                    readonly property bool isPicked: k === calTab.picked
+                                    readonly property int count: calTab.marked[k] ?? 0
+                                    Layout.fillWidth: true
+                                    implicitHeight: Math.round(26 * root.k)
+                                    radius: Theme.radiusSm
+                                    color: isToday ? Theme.gold : isPicked ? Theme.soft(Theme.cyan) : cellArea.containsMouse ? Theme.bg300 : "transparent"
+                                    border.width: isPicked ? 1 : 0
+                                    border.color: Theme.cyan
+                                    Mono {
+                                        anchors.centerIn: parent
+                                        anchors.verticalCenterOffset: cell.count ? -3 : 0
+                                        text: cell.modelData.getDate()
+                                        color: cell.isToday ? Theme.onAccent : !cell.inMonth ? Theme.faint
+                                             : cell.index % 7 >= 5 ? Theme.red : Theme.ink
+                                        font.bold: cell.isToday
+                                    }
+                                    // one dot per event, at most three
+                                    RowLayout {
+                                        visible: cell.count > 0
+                                        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 3 }
+                                        spacing: 2
+                                        Repeater {
+                                            model: Math.min(3, cell.count)
+                                            Rectangle { width: 4; height: 4; radius: 2; color: cell.isToday ? Theme.onAccent : Theme.aqua }
+                                        }
+                                    }
+                                    MouseArea {
+                                        id: cellArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: calTab.picked = cell.isPicked ? 0 : cell.k
+                                    }
+                                }
+                            }
+                        }
+
+                        Label {
+                            Layout.topMargin: 8
+                            text: calTab.picked
+                                ? "DAY // " + Qt.locale().toString(new Date(Math.floor(calTab.picked / 10000), Math.floor(calTab.picked / 100) % 100 - 1, calTab.picked % 100), "ddd dd.MM.").toLowerCase()
+                                : "NEXT // " + calTab.events.length + " in 7 days"
+                        }
+                        Repeater {
+                            model: calTab.shown
+                            Row {
+                                required property var modelData
+                                readonly property date at: new Date(modelData.start * 1000)
+                                navKey: "cal:" + modelData.start + modelData.title
+                                name: (calTab.picked ? "" : Qt.locale().toString(at, "ddd").replace(".", "").toLowerCase() + " ")
+                                      + (modelData.allday ? "  ···" : Qt.formatTime(at, "HH:mm")) + "  " + modelData.title
+                                note: modelData.where || modelData.cal
+                                hue: Theme.ink
+                                onClicked: calTab.picked = calTab.key(at)
+                            }
+                        }
+                        Mono {
+                            visible: calTab.shown.length === 0
+                            text: Feeds.cal.ok !== true ? "  no calendar · set it up in the nook tab (CalDAV)"
+                                : calTab.picked ? "  nothing that day (only the next 7 days are loaded)" : "  nothing in the next 7 days"
+                            color: Theme.faint
+                            font.pixelSize: Math.round(Theme.small * root.k)
+                        }
+                    }
 
                     // ── AUDIO ──
                     ColumnLayout {
@@ -575,7 +755,7 @@ Scope {
                                 onToggleMute: { if (modelData.audio) modelData.audio.muted = !modelData.audio.muted }
                             }
                         }
-                        Mono { visible: root.streams.length === 0; text: "  nothing is playing sound"; color: Theme.faint; font.pixelSize: Theme.small; Layout.topMargin: 6 }
+                        Mono { visible: root.streams.length === 0; text: "  nothing is playing sound"; color: Theme.faint; font.pixelSize: Math.round(Theme.small * root.k); Layout.topMargin: 6 }
                     }
 
                     // ── NET ──
@@ -639,7 +819,7 @@ Scope {
                             Label { text: "NET // WIFI" + (root.wifiDev ? "  " + root.wifiDev.name : "") }
                             Mono {
                                 visible: root.wifiDev?.scannerEnabled ?? false
-                                text: "scanning…"; color: Theme.faint; font.pixelSize: Theme.label
+                                text: "scanning…"; color: Theme.faint; font.pixelSize: Math.round(Theme.label * root.k)
                                 Layout.topMargin: 6; Layout.bottomMargin: 2
                             }
                             Item { Layout.fillWidth: true }
@@ -651,7 +831,7 @@ Scope {
                             }
                             Btn { text: "settings"; hue: Theme.amber; onClicked: root.netSettings() }
                         }
-                        Mono { visible: !root.wifiDev; text: "  no wifi device"; color: Theme.faint; font.pixelSize: Theme.small }
+                        Mono { visible: !root.wifiDev; text: "  no wifi device"; color: Theme.faint; font.pixelSize: Math.round(Theme.small * root.k) }
                         Repeater {
                             model: Networking.wifiEnabled ? root.wifiNets.slice(0, 12) : []
                             ColumnLayout {
@@ -722,11 +902,11 @@ Scope {
                             visible: root.netError !== ""
                             Layout.fillWidth: true
                             text: "[!!] " + root.netError
-                            color: Theme.orange; font.pixelSize: Theme.small; wrapMode: Text.Wrap
+                            color: Theme.orange; font.pixelSize: Math.round(Theme.small * root.k); wrapMode: Text.Wrap
                         }
                         Mono {
                             text: "⏎ / click: connect · profiles go to their own adapter, else [on …] · del: forget"
-                            color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
+                            color: Theme.faint; font.pixelSize: Math.round(Theme.label * root.k); Layout.topMargin: 6; Layout.fillWidth: true; wrapMode: Text.Wrap
                         }
                     }
 
@@ -796,11 +976,11 @@ Scope {
                         }
                         Mono {
                             visible: (root.bt?.enabled ?? false) && root.btDevices.length === 0
-                            text: "  no devices · press scan"; color: Theme.faint; font.pixelSize: Theme.small
+                            text: "  no devices · press scan"; color: Theme.faint; font.pixelSize: Math.round(Theme.small * root.k)
                         }
                         Mono {
                             text: "⏎ / click: connect / disconnect · del: forget · new devices pair and connect (scan first)"
-                            color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
+                            color: Theme.faint; font.pixelSize: Math.round(Theme.label * root.k); Layout.topMargin: 6; Layout.fillWidth: true; wrapMode: Text.Wrap
                         }
                     }
 
@@ -843,6 +1023,21 @@ Scope {
                             }
                         }
 
+                        Label { text: "BAR // LOOK" }
+                        Repeater {
+                            model: [{ kind: "pill", name: "pills" }, { kind: "strip", name: "strip" }, { kind: "layout", name: "layout" }]
+                            Row {
+                                required property var modelData
+                                readonly property var styles: modelData.kind === "pill" ? Settings.pillStyles : modelData.kind === "strip" ? Settings.stripStyles : Settings.barLayouts
+                                readonly property string cur: modelData.kind === "pill" ? Settings.pillStyle : modelData.kind === "strip" ? Settings.stripStyle : Settings.barLayout
+                                navKey: "look:" + modelData.kind
+                                name: modelData.name + "  [" + cur + "]  " + (styles.findIndex(x => x.id === cur) + 1) + "/" + styles.length
+                                note: (styles.find(x => x.id === cur) ?? {}).note ?? ""
+                                hue: Theme.red
+                                onClicked: Settings.nextStyle(modelData.kind)
+                            }
+                        }
+
                         Label { text: "DESK // WIDGETS" }
                         GridLayout {
                             Layout.fillWidth: true
@@ -880,7 +1075,7 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 6
-                            Field { id: newName; placeholder: "name"; Layout.preferredWidth: 120; Layout.fillWidth: false; onAccepted: newHost.focusIn(); onCancelled: text = "" }
+                            Field { id: newName; placeholder: "name"; Layout.preferredWidth: Math.round(120 * root.k); Layout.fillWidth: false; onAccepted: newHost.focusIn(); onCancelled: text = "" }
                             Field { id: newHost; placeholder: "host  or  host:port"; onAccepted: nookTab.addHost(); onCancelled: text = "" }
                             Btn { text: (Feeds.conf.srv ?? []).some(h => h.name === newName.text.trim()) ? "save" : "add"; hue: Theme.aqua; onClicked: nookTab.addHost() }
                         }
@@ -904,12 +1099,12 @@ Scope {
                             visible: Feeds.confError !== ""
                             Layout.fillWidth: true
                             text: "[!!] " + Feeds.confError
-                            color: Theme.orange; font.pixelSize: Theme.small; wrapMode: Text.Wrap
+                            color: Theme.orange; font.pixelSize: Math.round(Theme.small * root.k); wrapMode: Text.Wrap
                         }
                         Mono {
                             Layout.fillWidth: true
                             text: "⏎ / click: on / off · a host row fills the form, del removes it · kept in ~/.config/nook/shell.json and " + (Feeds.conf.path ?? "widgets.conf")
-                            color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6; wrapMode: Text.Wrap
+                            color: Theme.faint; font.pixelSize: Math.round(Theme.label * root.k); Layout.topMargin: 6; wrapMode: Text.Wrap
                         }
                     }
 
@@ -933,7 +1128,7 @@ Scope {
                                     trow.modelData.display(panel, p.x, p.y);
                                 }
                                 function run() {
-                                    if (trow.modelData.onlyMenu) { trow.openMenu(30, trow.height); return; }
+                                    if (trow.modelData.onlyMenu || root.trayMenuOnly.includes(trow.modelData.id)) { trow.openMenu(30, trow.height); return; }
                                     trow.modelData.activate();
                                     Ui.controlOpen = false;
                                 }
@@ -948,7 +1143,7 @@ Scope {
                                     e.accepted = true;
                                 }
                                 Layout.fillWidth: true
-                                implicitHeight: 26
+                                implicitHeight: Math.round(26 * root.k)
                                 radius: Theme.radiusSm
                                 color: tArea.containsMouse || activeFocus ? Theme.bg300 : "transparent"
                                 border.width: activeFocus ? 2 : 0
@@ -957,14 +1152,14 @@ Scope {
                                     anchors { fill: parent; leftMargin: 6; rightMargin: 6 }
                                     spacing: 8
                                     Mono { text: "[" + String(trow.index + 1).padStart(2, "0") + "]"; color: Theme.faint }
-                                    IconImage { source: trow.modelData.icon; implicitSize: 16 }
+                                    IconImage { source: trow.modelData.icon; implicitSize: Math.round(16 * root.k) }
                                     Mono {
                                         text: (trow.modelData.title || trow.modelData.tooltipTitle || trow.modelData.id).toLowerCase()
                                         color: Theme.amber
-                                        Layout.maximumWidth: 200
+                                        Layout.maximumWidth: Math.round(200 * root.k)
                                     }
                                     Mono { text: ".".repeat(80); color: Theme.faint; Layout.fillWidth: true; clip: true; elide: Text.ElideNone }
-                                    Mono { text: trow.modelData.status === Status.NeedsAttention ? "needs you" : trow.modelData.id.toLowerCase(); color: trow.modelData.status === Status.NeedsAttention ? Theme.orange : Theme.muted; font.pixelSize: Theme.small; Layout.maximumWidth: 120 }
+                                    Mono { text: trow.modelData.status === Status.NeedsAttention ? "needs you" : trow.modelData.id.toLowerCase(); color: trow.modelData.status === Status.NeedsAttention ? Theme.orange : Theme.muted; font.pixelSize: Math.round(Theme.small * root.k); Layout.maximumWidth: Math.round(120 * root.k) }
                                 }
                                 MouseArea {
                                     id: tArea
@@ -975,7 +1170,7 @@ Scope {
                                 }
                             }
                         }
-                        Mono { visible: SystemTray.items.values.length === 0; text: "  nothing running in the background"; color: Theme.faint; font.pixelSize: Theme.small }
+                        Mono { visible: SystemTray.items.values.length === 0; text: "  nothing running in the background"; color: Theme.faint; font.pixelSize: Math.round(Theme.small * root.k) }
 
                         Label { text: "MEDIA // NOW"; visible: root.player !== null }
                         ColumnLayout {
@@ -993,7 +1188,7 @@ Scope {
                         }
                         Mono {
                             text: "⏎ / click: open · m / right-click: its menu"
-                            color: Theme.faint; font.pixelSize: Theme.label; Layout.topMargin: 6
+                            color: Theme.faint; font.pixelSize: Math.round(Theme.label * root.k); Layout.topMargin: 6; Layout.fillWidth: true; wrapMode: Text.Wrap
                         }
                     }
 
@@ -1001,8 +1196,8 @@ Scope {
                     Mono {
                         Layout.margins: 10
                         Layout.leftMargin: 14
-                        text: "↑↓ move · ⏎ press · ←→ level · del forget · tab / 1‥5 tabs · esc · SUPER A / N / ⇧B"
-                        color: Theme.faint; font.pixelSize: Theme.label
+                        text: "↑↓ move · ⏎ press · ←→ level · del forget · tab / 1‥6 tabs · esc · SUPER A / C / N / ⇧B"
+                        color: Theme.faint; font.pixelSize: Math.round(Theme.label * root.k)
                     }
                 }
             }

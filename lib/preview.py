@@ -120,7 +120,7 @@ def desktop(kind, pal):
 
 
 SHELL = {
-    "zsh": ("zsh", "zsh in the nook terminals (Alacritty, kitty, Konsole's Nook profile)", "chsh is left alone"),
+    "zsh": ("zsh", "zsh in the nook terminals (kitty, Konsole's Nook profile)", "chsh is left alone"),
     "omz": ("oh-my-zsh", "autosuggestions (grey ghost text) and syntax highlighting in the palette", "git ↹ → git checkout …"),
     "prompt-nook": ("prompt · nook", "two lines from the oh-my-zsh theme", "╭─λ nbax@nook ─ ~/proj ─  main ✓\n ╰─❯"),
     "prompt-starship": ("prompt · starship", "bracketed tags, duration, exit code, time (needs starship)", "╭─[λ nbax@nook]─[~/proj]─[git:main ●2]\n ╰─▶                 took 4s · 14:55"),
@@ -132,7 +132,7 @@ SHELL = {
     "fd": ("fd", "fast find; feeds fzf's Ctrl+T and Alt+C", "fd conf → every *conf* path"),
     "ripgrep": ("ripgrep", "rg: fast grep with smart case and palette colours", "rg TODO"),
     "fzf": ("fzf", "Ctrl+R history, Ctrl+T files, Alt+C dirs, in the palette", "Ctrl+R → λ fuzzy history"),
-    "fastfetch": ("fastfetch", "system info once per new nook terminal", "the mug (Plasma) or the axolotl (tile)"),
+    "fastfetch": ("fastfetch", "system info once per new nook terminal", "the λ (Plasma) or the neon block λ (tile)"),
     "btop": ("btop", "system monitor with the nook theme", "SUPER ⇧ ⏎ in nook-tile"),
     "cava": ("cava", "audio visualiser bars in the palette", ""),
     "git": ("git colours", "status, branch and diff colours; git lg, git st, git last", "git lg → one-line graph"),

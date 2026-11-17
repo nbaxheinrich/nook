@@ -34,7 +34,7 @@ The shell, prompt and command-line tools are the shell part's (`./nook` → shel
 | `hypr/hyprland.lua` | `~/.config/hypr/hyprland.lua` | Just `require("machine")` and `require("nook")`. |
 | `hypr/hyprlock.conf`, `hypridle.conf` | `~/.config/hypr/` (links) | Lock screen with the `NOOK` banner's shadow-block clock (`bin/nook-lockclock`, one fire → ice hue per row), cyan input. Locks after 10 min. |
 | `quickshell/nook/` | `~/.config/quickshell/nook` (link) | The shell, started with `qs -c nook`. |
-| `kitty/nook.conf` | `~/.config/kitty/` (link + `include`) | The palette, 90% opacity; `NOOK=1` and the axolotl fastfetch for the shell part. |
+| `kitty/nook.conf` | `~/.config/kitty/` (link + `include`) | The palette, 90% opacity; `NOOK=1` and the block-λ fastfetch for the shell part. |
 | `ssh/nook.conf` | `~/.ssh/nook.conf` (copy, mode 600, + `Include` at the end of `~/.ssh/config`) | `TERM=xterm-256color` for ssh, so `nano` & co. work on machines without kitty's terminfo (`Error opening terminal: xterm-kitty`). A `Host` block of your own above it wins. |
 | `mako/config` | `~/.config/mako/` (link) | Notifications top-right: `[i]` / `[~]` / `[!!]`, critical ones in red. |
 | `../shared/cursors/pixelcursors.py` | `~/.local/share/icons/Nook-{Pixel,Halo,Neon,Ember,Dusk,Sign}` (generated) | Pixel-art cursors in six styles, in the palette's colours. The default is **Neon** at size 16: a dark fill, a cyan neon-tube outline and a cyan glow. Pixel is the old Win95 / Mac classic look; Halo, Ember, Dusk and Sign are the others. Switch live with `hyprctl setcursor Nook-Ember 16`; `pixelcursors.py --sheet preview.png` draws them all side by side. |

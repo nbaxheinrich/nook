@@ -2,16 +2,13 @@
 # Build the Nook icon themes for a palette: the rice's icon set (BeautyLine + Breeze symbolic),
 # every icon painted in ONE colour chosen by its category.
 #   build_icons.sh cocoa  → ~/.local/share/icons/Nook       (+ Nook-Breeze)
-#   build_icons.sh ramen  → ~/.local/share/icons/Nook-Ramen (+ Nook-Ramen-Breeze)
+#   build_icons.sh ramen  → ~/.local/share/icons/Nook-Ramen (+ Nook-Ramen-Breeze), any palettes/<name>.json likewise
 # Used by apply.sh (Plasma) and tile/install.sh (Qt apps under Hyprland). No sudo.
 set -euo pipefail
 source "$(dirname "$0")/../../lib/lib.sh"
 palette=${1:-cocoa}
-case "$palette" in
-  cocoa) name=Nook ;;
-  ramen) name=Nook-Ramen ;;
-  *) die "unknown palette $palette (cocoa, ramen)" ;;
-esac
+[ -f "$REPO/palettes/$palette.json" ] || die "unknown palette $palette (have: $(ls "$REPO/palettes" | sed -n 's/\.json$//p' | tr '\n' ' '))"
+name=$(icon_theme "$palette")
 step "icons: $name ($palette)"
 
 # BeautyLine (GPL-3) is fetched at a fixed commit and repainted locally; it is not vendored here.

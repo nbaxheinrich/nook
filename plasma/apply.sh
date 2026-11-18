@@ -33,7 +33,7 @@ BIN="$HOME/.local/bin"
 # the palette every generator below reads (icons.py, themegen.py, wallpaper.py, appicons.py)
 export NOOK_PALETTE=$PALETTE
 mkdir -p "$NOOK_STATE"; echo "$PALETTE" > "$NOOK_STATE/palette"
-if [ "$PALETTE" = ramen ]; then SCHEME=NookRamen ICONS=Nook-Ramen; else SCHEME=Nook ICONS=Nook; fi
+SCHEME=$(kde_scheme "$PALETTE") ICONS=$(icon_theme "$PALETTE")
 [ -f "$REPO/palettes/$PALETTE.json" ] || die "unknown palette $PALETTE (have: $(ls "$REPO/palettes" | sed 's/\.json//' | tr '\n' ' '))"
 # files with the palette written into them (drawn in cocoa) are recoloured where they're installed
 ramenize() { [ "$PALETTE" = cocoa ] && return 0; python3 -I "$REPO/lib/recolor.py" --from cocoa --to "$PALETTE" "$@" >/dev/null; }
@@ -66,8 +66,7 @@ ok "backup done"
 
 # ── 1 · files ───────────────────────────────────────────────────────────────
 step "installing theme files"
-install -Dm644 "$REPO/palettes/kde/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
-install -Dm644 "$REPO/palettes/kde/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
+for f in "$REPO"/palettes/kde/*.colors; do install -Dm644 "$f" "$XDG_DATA_HOME/color-schemes/${f##*/}"; done
 install -Dm644 "$REPO/plasma/theme/konsole/Nook.colorscheme" "$XDG_DATA_HOME/konsole/Nook.colorscheme"
 install -Dm644 "$REPO/shared/icons/svg/nook.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook.svg"
 install -Dm644 "$REPO/shared/icons/svg/nook-start.svg" "$XDG_DATA_HOME/icons/hicolor/scalable/apps/nook-start.svg"

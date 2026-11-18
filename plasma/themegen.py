@@ -15,12 +15,22 @@ from pathlib import Path
 BG000, BG100, BG200, BG300 = "#1a1614", "#221d1a", "#2a2420", "#372f2a"
 LINE, INK, MUTED, FAINT = "#4a3f38", "#f6ece4", "#bfae9f", "#7d6d62"
 CORAL, LAVENDER, LILAC, ON_ACCENT = "#f7a59a", "#c4b2f5", "#e2b5f0", "#221d1a"
+PROGRESS = "#a6e6bf"
 
 # NOOK_PALETTE=ramen: Ramen Sign (nook-tile's look) — neutral greys, cyan focus, red accent
 if os.environ.get("NOOK_PALETTE") == "ramen":
     BG000, BG100, BG200, BG300 = "#060606", "#0d0d0d", "#141414", "#202020"
     LINE, INK, MUTED, FAINT = "#343434", "#f2f2f2", "#a8a8a8", "#626262"
     CORAL, LAVENDER, LILAC, ON_ACCENT = "#ff6458", "#45c8e6", "#ff6458", "#0d0d0d"
+# any other palette: read from palettes/<name>.json (accent for coral and lilac, focus for lavender)
+elif os.environ.get("NOOK_PALETTE", "cocoa") not in ("cocoa", "pastel"):
+    _p = json.loads((Path(__file__).resolve().parent.parent / "palettes"
+                     / f"{os.environ['NOOK_PALETTE']}.json").read_text())
+    _r = {**{k: _p["roles"][v] for k, v in _p.get("aliases", {}).items()}, **_p["roles"]}
+    BG000, BG100, BG200, BG300 = _r["bg000"], _r["bg100"], _r["bg200"], _r["bg300"]
+    LINE, INK, MUTED, FAINT = _r["line"], _r["ink"], _r["muted"], _r["faint"]
+    CORAL, LAVENDER, LILAC, ON_ACCENT = _r["accent"], _r["focus"], _r["accent"], _r["bg100"]
+    PROGRESS = _r["dev"]
 
 
 class Doc:
@@ -156,7 +166,7 @@ def plasma(dest):
     frame(d, "hover", 10, BG300, 0.9, radius=3, round_corners="tl tr", inset_bar=(MUTED, 2), margins=m)
     frame(d, "focus", 10, BG300, 1.0, radius=3, round_corners="tl tr", inset_bar=(LAVENDER, 3), margins=m)
     frame(d, "attention", 10, CORAL, 0.16, radius=3, round_corners="tl tr", inset_bar=(CORAL, 3), margins=m)
-    frame(d, "progress", 10, "#a6e6bf", 0.16, radius=3, round_corners="tl tr", margins=m)
+    frame(d, "progress", 10, PROGRESS, 0.16, radius=3, round_corners="tl tr", margins=m)
     (dest / "widgets/tasks.svg").write_text(d.svg())
 
     # Popups (launcher, tray, calendar): radius-md, lavender ring = glow-focus.

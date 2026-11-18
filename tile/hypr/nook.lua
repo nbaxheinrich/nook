@@ -196,6 +196,8 @@ hl.layer_rule({ match = { namespace = "^nook-(launcher|control)$" }, no_anim = t
 -- dialogs and pickers float
 hl.window_rule({ match = { class = "^(org.kde.polkit-kde-authentication-agent-1|hyprpolkitagent|pavucontrol|org.pulseaudio.pavucontrol|nm-connection-editor|blueman-manager)$" }, float = true })
 hl.window_rule({ match = { title = "^(Open File|Save File|Open Folder|Choose Files?).*$" }, float = true })
+-- satty, the screenshot editor (bin/nook-shot): floats over what you just captured
+hl.window_rule({ match = { class = "^(com.gabm.satty|org.satty.Satty|satty)$" }, float = true, center = true, size = "monitor_w*0.8 monitor_h*0.8" })
 hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })
 -- xwaylandvideobridge (autostarted for Plasma, shares screens to X11 apps) maps a real window;
 -- keep it working but invisible instead of tiling it onto the workspace
@@ -366,12 +368,14 @@ bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratch" }),
 -- system
 bind(M("L"),     hl.dsp.exec_cmd("loginctl lock-session"),                         "system: lock")
 bind(M("K"),     hl.dsp.exec_cmd("hyprctl switchxkblayout all next && qs -c nook ipc call kb refresh"),              "settings: keyboard eu ⇄ de")
--- screenshots: saved to ~/Pictures/Screenshots, copied, notified (bin/nook-shot); SUPER ⇧ S like Plasma
-bind(MS("S"),    hl.dsp.exec_cmd("nook-shot area"),                                "system: screenshot area")
-bind(MS("W"),    hl.dsp.exec_cmd("nook-shot window"),                              "system: screenshot window")
-bind(MS("A"),    hl.dsp.exec_cmd("nook-shot screen"),                              "system: screenshot screen")
+-- screenshots (bin/nook-shot): edit in satty, ⏎ saves to ~/Pictures/Screenshots + copies, Esc drops it;
+-- the --quick ones skip the editor. SUPER ⇧ S like Plasma
+bind(MS("S"),    hl.dsp.exec_cmd("nook-shot area"),                                "system: screenshot area (edit)")
+bind(MS("W"),    hl.dsp.exec_cmd("nook-shot window"),                              "system: screenshot window (edit)")
+bind(MS("A"),    hl.dsp.exec_cmd("nook-shot screen"),                              "system: screenshot screen (edit)")
+bind(mod .. " + SHIFT + ALT + S", hl.dsp.exec_cmd("nook-shot area --quick"),       "system: screenshot area, no editor")
 hl.bind("PRINT",    hl.dsp.exec_cmd("nook-shot area"))
-hl.bind(MS("PRINT"), hl.dsp.exec_cmd("nook-shot screen"))
+hl.bind(MS("PRINT"), hl.dsp.exec_cmd("nook-shot screen --quick"))
 bind(M("slash"), hl.dsp.exec_cmd("qs -c nook ipc call cheatsheet peek"),           "system: this cheatsheet")
 -- kded6 grabs the tray name while qs is down, and tray apps only register once: so stop kded6,
 -- and restart the running autostart apps once the new qs has the tray (bin/nook-autostart)

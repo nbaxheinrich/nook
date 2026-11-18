@@ -143,42 +143,85 @@ def turn_label(t): return dict(TURN).get(t, f"transform {t}")
 def hz(v): return f"{v:.2f}".rstrip("0").rstrip(".")
 
 
+SETUP_HEAD = "-- setup: "
+OUTPUT_RE = re.compile(r'output = "([^"]*)"')
+SCREEN_NOTE_RE = re.compile(r"^-- (\S+): (.+), (upright|turned right \(portrait\)|turned left \(portrait\)|upside down|transform \d+)$")
+
+
+def screen_key(s):
+    """a screen's output rule: its description (make, model, serial) when it has one, so the
+    rule follows the screen to whatever port the dock hands out"""
+    return f"desc:{s['desc']}" if s["desc"] else s["name"]
+
+
 def monitor_block(screens):
-    lines = ["-- screens, left to right (./nook setup screens wrote this)"]
+    """one setup: the screens plugged in right now, left to right. Matched by description,
+    so every setup ever saved can sit in machine.lua and Hyprland applies the one whose
+    screens are connected"""
+    models = " + ".join(s["desc"].rsplit(" ", 1)[0] if s["desc"] else s["name"] for s in screens)
+    lines = [f"{SETUP_HEAD}{models} (./nook setup screens, {time.strftime('%Y-%m-%d')})"]
     x = 0
     for s in screens:
         w, h = (s["h"], s["w"]) if s["transform"] in (1, 3) else (s["w"], s["h"])
         lw = round(w / s["scale"])
         extra = f", transform = {s['transform']}" if s["transform"] else ""
         lines.append(f"-- {s['name']}: {s['desc'] or 'screen'}, {turn_label(s['transform'])}")
-        lines.append(f'hl.monitor({{ output = "{s["name"]}", mode = "{s["w"]}x{s["h"]}@{hz(s["hz"])}", '
+        lines.append(f'hl.monitor({{ output = "{screen_key(s)}", mode = "{s["w"]}x{s["h"]}@{hz(s["hz"])}", '
                      f'position = "{x}x0", scale = {hz(s["scale"])}{extra} }})')
         x += lw
     return lines
 
 
-def replace_monitors(text, block):
-    """swap the fixed hl.monitor lines (and the comments right above them) for block; the
-    catch-all line for other screens (output = "") stays"""
+def replace_monitors(text, block, screens):
+    """swap the rules (and the note right above each) of the screens in block for block, and
+    keep every other setup's rules. Older port-name rules ("DP-4") whose note names the
+    screen become description rules first, so they stop catching whatever sits on that port.
+    The catch-all line for other screens (output = "") stays. Returns (text, shared), shared
+    being the screens whose rule another kept setup used too"""
+    current = {screen_key(s) for s in screens} | {s["name"] for s in screens}
     lines = text.splitlines()
-    keep, first = [], None
-    i = 0
-    while i < len(lines):
-        l = lines[i]
-        if l.strip().startswith("hl.monitor(") and 'output = ""' not in l:
-            # drop the comment lines right above it
-            while keep and keep[-1].strip().startswith("--") and not keep[-1].startswith("-- ──"):
-                keep.pop()
-            while keep and keep[-1].strip() == "" and keep[-2:-1] and keep[-2].strip() == "":
-                keep.pop()
+    keep, first, dropped, heading = [], None, {}, None
+    for l in lines:
+        if l.startswith(SETUP_HEAD): heading = l
+        elif not l.strip(): heading = None
+        m = OUTPUT_RE.search(l) if l.strip().startswith("hl.monitor(") else None
+        if not m or m[1] == "":
+            keep.append(l)
+            continue
+        key = m[1]
+        note = SCREEN_NOTE_RE.match(keep[-1].strip()) if keep else None
+        if not key.startswith("desc:") and note and note[1] == key and note[2] != "screen":
+            key = f"desc:{note[2]}"
+            l = l.replace(m[0], f'output = "{key}"', 1)
+        if key in current:
+            if note: keep.pop()
+            dropped[key] = heading
             if first is None: first = len(keep)
         else:
             keep.append(l)
-        i += 1
-    if first is None:   # no screens yet: after the header comment
-        first = next((n for n, l in enumerate(keep) if not l.startswith("--")), len(keep))
-    keep[first:first] = block + [""]
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(keep)).rstrip("\n") + "\n"
+    # a setup heading whose rules all went
+    tidy = []
+    for n, l in enumerate(keep):
+        if l.startswith("-- screens, left to right (./nook setup screens wrote this)"):    # pre-setups heading
+            if first is not None and n < first: first -= 1
+            continue
+        if l.startswith(SETUP_HEAD):
+            rest = keep[n + 1:]
+            end = next((k for k, r in enumerate(rest) if r.startswith(SETUP_HEAD) or not r.strip().startswith(("--", "hl.monitor("))), len(rest))
+            if not any(r.strip().startswith("hl.monitor(") for r in rest[:end]):
+                if first is not None and n < first: first -= 1
+                continue
+        tidy.append(l)
+    keep = tidy
+    if first is None:   # these screens are new: before the catch-all, else after the header comment
+        first = next((n for n, l in enumerate(keep) if 'output = ""' in l), None)
+        if first is not None:
+            while first and keep[first - 1].strip().startswith("--"): first -= 1
+        else:
+            first = next((n for n, l in enumerate(keep) if not l.startswith("--")), len(keep))
+    shared = sorted(k[5:] for k, h in dropped.items() if h and h in keep and k.startswith("desc:"))
+    keep[first:first] = [""] + block + [""]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(keep)).rstrip("\n") + "\n", shared
 
 
 def step_screens():
@@ -216,7 +259,10 @@ def step_screens():
         try: s["scale"] = float(sc)
         except ValueError: warn("kept " + hz(s["scale"]))
     old = MACHINE.read_text() if MACHINE.exists() else (REPO / "tile/hypr/machine.lua").read_text()
-    if write_checked(MACHINE, old, replace_monitors(old, monitor_block(screens))) and os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+    new, shared = replace_monitors(old, monitor_block(screens), screens)
+    for d in shared:
+        warn(f"{d} is in another saved setup too; one rule per screen, so it now sits where this setup puts it there as well")
+    if write_checked(MACHINE, old, new) and os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
         run(["hyprctl", "reload"])
         ok("Hyprland reloaded. Upside down? ./nook setup screens and pick the other side")
 

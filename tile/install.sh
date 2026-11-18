@@ -10,7 +10,7 @@
 #               look     cursor, icons, fonts, Qt apps in the palette
 #               term     kitty (+ a TERM that ssh hosts know)
 #               notify   mako
-#               tools    nook-shot, nook-display, nook-gamemode
+#               tools    nook-shot (+ the satty editor), nook-display, nook-gamemode
 #               browser  nook-tabs: your browser tabs in the launcher
 #               session  systemd target, screen-sharing fixes, Plasma's look back after a tile session
 #   --packages  exactly these packages (ids from lib/packages.tsv; default: the picked parts' usual ones)
@@ -97,6 +97,22 @@ deps_ubuntu() {
       build_quickshell
     fi
   fi
+  [[ $special == *satty* ]] && install_satty_flatpak
+  return 0
+}
+
+# satty (the screenshot editor) is not in apt: its Flatpak bundle from the GitHub release,
+# per user, with Flathub for the GNOME runtime it needs
+SATTY_TAG=v0.22.0
+install_satty_flatpak() {
+  flatpak info org.satty.Satty >/dev/null 2>&1 && return 0
+  have flatpak || sudo apt-get install -y flatpak
+  local tmp; tmp=$(mktemp -d)
+  flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+  curl -fsSL -o "$tmp/satty.flatpak" "https://github.com/Satty-org/Satty/releases/download/$SATTY_TAG/satty-$SATTY_TAG.flatpak" \
+    && flatpak install --user -y --noninteractive "$tmp/satty.flatpak" \
+    && ok "satty $SATTY_TAG (Flatpak)" || warn "satty not installed; nook-shot saves without the editor"
+  rm -rf "$tmp"
 }
 
 # Quickshell from source (Ubuntu 26.04): every feature on except the crash handler (cpptrace
@@ -138,12 +154,19 @@ if [ "$palette" = ramen ]; then
   TSRC=$TILE
 else
   TSRC="$NOOK_SHARE/tile-build"
-  rm -rf "$TSRC"; mkdir -p "$TSRC"
-  for d in hypr quickshell kitty mako qt systemd; do cp -rL "$TILE/$d" "$TSRC/$d"; done
-  python3 -I "$REPO/lib/recolor.py" --from ramen --to "$palette" "$TSRC" >/dev/null
+  # built next to it, then swapped in file by file: the running Hyprland and Quickshell watch
+  # these files, and a moment without nook.lua puts Hyprland in its emergency config
+  new="$TSRC.new"
+  rm -rf "$new"; mkdir -p "$new"
+  for d in hypr quickshell kitty mako qt satty systemd; do cp -rL "$TILE/$d" "$new/$d"; done
+  install -Dm755 "$TILE/bin/nook-lockclock" "$new/bin/nook-lockclock"
+  python3 -I "$REPO/lib/recolor.py" --from ramen --to "$palette" "$new" >/dev/null
+  if have rsync; then rsync -a --delete-after --delay-updates "$new/" "$TSRC/"; rm -rf "$new"
+  else rm -rf "$TSRC"; mv "$new" "$TSRC"
+  fi
   ok "tile recoloured ramen → $palette in ${TSRC/#$HOME/~}"
 fi
-ICONS=$([ "$palette" = ramen ] && echo Nook-Ramen || echo Nook)
+ICONS=$(icon_theme "$palette")
 
 # link SRC to DEST; an existing real file is backed up first, an old link replaced
 link() {
@@ -192,7 +215,7 @@ if on lock; then
   step "lock"
   link "$TSRC/hypr/hyprlock.conf"  "$CFG/hypr/hyprlock.conf"
   link "$TSRC/hypr/hypridle.conf"  "$CFG/hypr/hypridle.conf"
-  link "$TILE/bin/nook-lockclock"  "$HOME/.local/bin/nook-lockclock"
+  link "$TSRC/bin/nook-lockclock"  "$HOME/.local/bin/nook-lockclock"
   ok "hyprlock, hypridle"
 fi
 
@@ -209,8 +232,8 @@ python3 -I "$REPO/shared/cursors/pixelcursors.py" --all --palette="$palette" "$X
 # ── Qt apps: qt6ct with the palette's KDE colour scheme (Hyprland session only) ──
 step "qt apps"
 link "$REPO/palettes/kde/NookRamen.colors" "$XDG_DATA_HOME/color-schemes/NookRamen.colors"
-install -Dm644 "$REPO/palettes/kde/Nook.colors" "$XDG_DATA_HOME/color-schemes/Nook.colors"
-kscheme=$([ "$palette" = ramen ] && echo NookRamen || echo Nook)
+for f in "$REPO"/palettes/kde/*.colors; do [ "${f##*/}" = NookRamen.colors ] || install -Dm644 "$f" "$XDG_DATA_HOME/color-schemes/${f##*/}"; done
+kscheme=$(kde_scheme "$palette")
 link "$TSRC/qt/qt6ct.conf"   "$CFG/qt6ct/colors/nook-tile.conf"
 # The KDE-aware qt6ct (Fedora/Nobara) loads KDE .colors schemes, so Dolphin & co. follow too;
 # plain qt6ct (Ubuntu) only reads its own palette format.
@@ -294,6 +317,7 @@ fi
 if on tools; then
   link "$TILE/bin/nook-gamemode"       "$HOME/.local/bin/nook-gamemode"
   link "$TILE/bin/nook-shot"           "$HOME/.local/bin/nook-shot"
+  link "$TSRC/satty/config.toml"       "$CFG/satty/config.toml"
   link "$TILE/bin/nook-display"        "$HOME/.local/bin/nook-display"
   ok "nook-shot, nook-display, nook-gamemode"
 fi

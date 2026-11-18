@@ -43,7 +43,7 @@ done
 if [ "$remove" = 1 ]; then
   step "login screen: removing the nook theme"
   # shellcheck disable=SC2086
-  sudo rm -rf "$THEME" "$PIXEL" "$CONF" "$SCHEMES/Nook.colors" "$SCHEMES/NookRamen.colors" $OLD
+  sudo rm -rf "$THEME" "$PIXEL" "$CONF" "$SCHEMES/Nook.colors" "$SCHEMES/NookRamen.colors" "$SCHEMES/NookHaver.colors" $OLD
   if home=$(plm_home) && [ -n "$home" ]; then
     sudo rm -rf "$home/.config/kdeglobals" "$home/.config/plasmarc" "$home/.config/kcminputrc" \
                 "$home/.cache" "$home/wallpapers/nook.png"
@@ -87,7 +87,7 @@ fi
 
 if [ -n "$home" ]; then
   step "login screen: Plasma Login ($palette)"
-  scheme=$([ "$palette" = ramen ] && echo NookRamen || echo Nook)
+  scheme=$(kde_scheme "$palette")
   sudo install -Dm644 "$REPO/palettes/kde/$scheme.colors" "$SCHEMES/$scheme.colors"
 
   # The greeter is a small Plasma session of the plasmalogin user, so it reads that user's

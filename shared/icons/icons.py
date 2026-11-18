@@ -37,6 +37,18 @@ if os.environ.get("NOOK_PALETTE") == "ramen":
         "teal": "#45c8e6", "sky": "#62a5ff", "lavender": "#ffb14a", "lilac": "#ffd98f", "ink": "#f2f2f2",
     }
     BG = "#0d0d0d"
+# any other palette: the same categories from palettes/<name>.json
+elif os.environ.get("NOOK_PALETTE", "cocoa") not in ("cocoa", "pastel"):
+    import json
+    _p = json.loads((Path(__file__).resolve().parents[2] / "palettes"
+                     / f"{os.environ['NOOK_PALETTE']}.json").read_text())
+    _r = {**{k: _p["roles"][v] for k, v in _p.get("aliases", {}).items()}, **_p["roles"]}
+    HUE = {
+        "pink": _r["media"], "coral": _r["danger"], "peach": _r["time"], "butter": _r["files"],
+        "mint": _r["dev"], "teal": _r["comms"], "sky": _r["net"], "lavender": _r["system"],
+        "lilac": _r["session"], "ink": _r["ink"],
+    }
+    BG = _r["bg100"]
 
 # First match wins. Each word matches the start of a name token (tokens split on - . _ and digits).
 RULES = [

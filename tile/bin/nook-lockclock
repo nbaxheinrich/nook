@@ -16,7 +16,7 @@ declare -A G=(
   [9]=' █████╗ |██╔══██╗|╚██████║| ╚═══██║| █████╔╝| ╚════╝ '
   [:]='   |██╗|╚═╝|██╗|╚═╝|   '
 )
-HUES=(ff7a5c ff6458 ff9a3c ffc247 4fd8cf 45c8e6)
+HUES=("#ff7a5c" "#ff6458" "#ff9a3c" "#ffc247" "#4fd8cf" "#45c8e6")
 
 t=$(date +%H:%M)
 rows=("" "" "" "" "" "")
@@ -27,7 +27,7 @@ done
 
 out=""
 for r in 0 1 2 3 4 5; do
-  out+="<span foreground=\"#${HUES[r]}\">${rows[r]}</span>"
+  out+="<span foreground=\"${HUES[r]}\">${rows[r]}</span>"
   [ "$r" -lt 5 ] && out+=$'\n'
 done
 printf '%s\n' "$out"

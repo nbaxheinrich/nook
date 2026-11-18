@@ -1,0 +1,25 @@
+# nook-tile · satty, the screenshot editor that nook-shot opens. Ramen Sign.
+# nook-shot passes this file with -c and the output file with -o, and copies the saved image
+# with wl-copy once satty closes (satty's own clipboard would empty when it exits).
+#   ⏎      save + copy + close          Esc    close without saving
+#   Ctrl C copy (saves too)             Ctrl S save    Ctrl ⇧ S save as
+[general]
+initial-tool = "arrow"
+corner-roundness = 4
+annotation-size-factor = 1.0
+early-exit = false
+save-after-copy = true
+actions-on-enter = ["save-to-file", "exit"]
+actions-on-escape = ["exit"]
+primary-highlighter = "block"
+no-window-decoration = true
+brush-smooth-history-size = 5
+disable-notifications = true
+
+[font]
+family = "JetBrains Mono"
+style = "Bold"
+
+[color-palette]
+palette = ["#ff6458", "#45c8e6", "#4fd8cf", "#ffc247", "#ff7a5c", "#62a5ff", "#f2f2f2", "#060606"]
+custom = ["#ff6458", "#ff9a3c", "#ffc247", "#4fd8cf", "#45c8e6", "#62a5ff", "#ff7a5c", "#ffd98f", "#f2f2f2", "#a8a8a8", "#202020", "#060606"]

@@ -5,7 +5,8 @@
 #   on     1 = picked by default when its part is picked, 0 = offered but off
 #   names  the distro's package name(s), space separated; - = not there (install by hand);
 #          @name = done by nook itself (@vt323 is downloaded, @quickshell built on Ubuntu,
-#          @lazygit from COPR atim/lazygit, @opencode from npm or its installer)
+#          @lazygit from COPR atim/lazygit, @opencode from npm or its installer,
+#          @satty as the Flatpak from its GitHub release)
 # Hyprland comes from COPR sdegler/hyprland (Fedora) or PPA cppiber/hyprland (Ubuntu); the
 # installer enables those only when a package from them is picked.
 hyprland	tile.hypr	1	the compositor, 0.57 or newer	hyprland	hyprland	-	-
@@ -24,6 +25,7 @@ mako	tile.notify	1	notifications	mako	mako-notifier	mako	mako
 qt6ct	tile.look	1	Qt apps (Dolphin …) in the palette	qt6ct	qt6ct	qt6ct	qt6ct
 grim	tile.tools	1	screenshots (nook-shot, Print)	grim	grim	grim	grim
 slurp	tile.tools	1	pick a region for screenshots	slurp	slurp	slurp	slurp
+satty	tile.tools	1	edit screenshots: arrows, text, blur, crop (Ubuntu: the Flatpak)	satty	@satty	satty	-
 wl-clipboard	tile.tools	1	screenshots and the launcher to the clipboard	wl-clipboard	wl-clipboard	wl-clipboard	wl-clipboard
 clipman	tile.tools	1	keeps what you copied after the app you copied from closes	clipman	clipman	clipman	-
 dolphin	tile.tools	1	the file manager (SUPER E)	dolphin	dolphin	dolphin	dolphin

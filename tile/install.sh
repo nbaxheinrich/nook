@@ -138,10 +138,16 @@ if [ "$palette" = ramen ]; then
   TSRC=$TILE
 else
   TSRC="$NOOK_SHARE/tile-build"
-  rm -rf "$TSRC"; mkdir -p "$TSRC"
-  for d in hypr quickshell kitty mako qt systemd; do cp -rL "$TILE/$d" "$TSRC/$d"; done
-  install -Dm755 "$TILE/bin/nook-lockclock" "$TSRC/bin/nook-lockclock"
-  python3 -I "$REPO/lib/recolor.py" --from ramen --to "$palette" "$TSRC" >/dev/null
+  # built next to it, then swapped in file by file: the running Hyprland and Quickshell watch
+  # these files, and a moment without nook.lua puts Hyprland in its emergency config
+  new="$TSRC.new"
+  rm -rf "$new"; mkdir -p "$new"
+  for d in hypr quickshell kitty mako qt systemd; do cp -rL "$TILE/$d" "$new/$d"; done
+  install -Dm755 "$TILE/bin/nook-lockclock" "$new/bin/nook-lockclock"
+  python3 -I "$REPO/lib/recolor.py" --from ramen --to "$palette" "$new" >/dev/null
+  if have rsync; then rsync -a --delete-after --delay-updates "$new/" "$TSRC/"; rm -rf "$new"
+  else rm -rf "$TSRC"; mv "$new" "$TSRC"
+  fi
   ok "tile recoloured ramen → $palette in ${TSRC/#$HOME/~}"
 fi
 ICONS=$(icon_theme "$palette")

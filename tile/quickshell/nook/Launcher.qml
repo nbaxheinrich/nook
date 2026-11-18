@@ -1,6 +1,6 @@
 // The hack menu (SUPER SPACE, or the λ nook button): the design system's Launcher, live.
 //
-//   ┌ NOOK banner (fire → ice, diagonal) ─────────────────────────────┐
+//   ┌ λ NOOK banner (fire → ice, diagonal) ─────────────────────────────┐
 //   │ user@host  kernel  uptime  ● status                              │
 //   │ λ ~/ > query▮                                                    │
 //   │ APPS // PINNED | MATCH              │ SYS // LIVE  bars, net     │
@@ -29,6 +29,15 @@ import QtQuick.Effects
 
 Scope {
     id: root
+    readonly property real k: 1.4           // size of the whole panel: fonts, rows, widths
+    // 0 → 1 while it opens, 1 → 0 while it closes; the window stays mapped until it is 0
+    property real shown: Ui.launcherOpen ? 1 : 0
+    Behavior on shown {
+        NumberAnimation {
+            duration: Ui.launcherOpen ? 220 : 160
+            easing.type: Ui.launcherOpen ? Easing.OutCubic : Easing.InCubic
+        }
+    }
 
     property string query: ""
     property int sel: 0                     // index into results (all of them, not only the shown rows)
@@ -235,14 +244,15 @@ Scope {
         }
     }
 
-    // NOOK banner, coloured in 5-column bands that shift two columns per row (fire → ice, diagonal)
+    // λ NOOK banner (the λ drawn in the same block font), coloured in 5-column bands that shift two
+    // columns per row (fire → ice, diagonal)
     readonly property var banner: [
-        "███╗   ██╗ ██████╗  ██████╗ ██╗  ██╗",
-        "████╗  ██║██╔═══██╗██╔═══██╗██║ ██╔╝",
-        "██╔██╗ ██║██║   ██║██║   ██║█████╔╝ ",
-        "██║╚██╗██║██║   ██║██║   ██║██╔═██╗ ",
-        "██║ ╚████║╚██████╔╝╚██████╔╝██║  ██╗",
-        "╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝"
+        "██╗      ███╗   ██╗ ██████╗  ██████╗ ██╗  ██╗",
+        "╚██╗     ████╗  ██║██╔═══██╗██╔═══██╗██║ ██╔╝",
+        " ╚██╗    ██╔██╗ ██║██║   ██║██║   ██║█████╔╝ ",
+        " ████╗   ██║╚██╗██║██║   ██║██║   ██║██╔═██╗ ",
+        "██╔╝██╗  ██║ ╚████║╚██████╔╝╚██████╔╝██║  ██╗",
+        "╚═╝ ╚═╝  ╚═╝  ╚═══╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝"
     ]
     function bannerRow(row) {
         const chars = Array.from(root.banner[row]);
@@ -268,11 +278,11 @@ Scope {
     component Mono: Text {
         color: Theme.ink
         font.family: Theme.font
-        font.pixelSize: 12
+        font.pixelSize: Math.round(12 * root.k)
     }
     component Label: Mono {
         color: Theme.faint
-        font.pixelSize: Theme.label
+        font.pixelSize: Math.round(Theme.label * root.k)
         font.bold: true
         font.letterSpacing: 1.2
     }
@@ -285,34 +295,43 @@ Scope {
 
     PanelWindow {
         id: panel
-        visible: Ui.launcherOpen
+        visible: Ui.launcherOpen || root.shown > 0
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "nook-launcher"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        WlrLayershell.keyboardFocus: Ui.launcherOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
         anchors { bottom: true; left: true }
-        margins { bottom: Theme.bar + Theme.edge; left: Theme.edge }
-        implicitWidth: 560
-        implicitHeight: card.implicitHeight + 40
+        // bottom left, lined up with the bar: the card's left edge on the λ nook pill's, and Theme.edge
+        // above the bar like the gap between windows. Halo room above and to the right.
+        readonly property int halo: 56
+        readonly property int below: Theme.bar - (Theme.bar - Theme.pill) / 2 + Theme.edge   // Theme.edge above the pills
+        mask: Region { item: card }
+        implicitWidth: Theme.edge + card.width + halo
+        implicitHeight: halo + card.implicitHeight + below
         color: "transparent"
         onVisibleChanged: if (visible) focusTimer.restart()
         // the layer surface takes keyboard focus a moment after it maps
         Timer { id: focusTimer; interval: 50; onTriggered: input.forceActiveFocus() }
 
-        // the cyan neon halo around the card
+        // the cyan halo around the card: short and soft, and the window leaves it room (halo) so
+        // it fades out instead of being cut off at the window's edge. Only the card takes clicks.
         RectangularShadow {
             anchors.fill: card
+            opacity: root.shown
+            transform: Translate { y: (1 - root.shown) * 10 }
             radius: Theme.radius
-            blur: 24
+            blur: 8
             spread: 0
-            color: Theme.alpha(Theme.cyan, 0.45)
+            color: Theme.alpha(Theme.cyan, 0.3)
         }
 
         Rectangle {
             id: card
-            x: 10; y: 10
-            width: 540
+            opacity: root.shown
+            transform: Translate { y: (1 - root.shown) * 10 }
+            x: Theme.edge; y: panel.halo
+            width: Math.round(540 * root.k)
             implicitHeight: body.implicitHeight
             radius: Theme.radius
             color: Theme.bg100
@@ -339,9 +358,9 @@ Scope {
                                 textFormat: Text.RichText
                                 text: root.bannerRow(index)
                                 font.family: Theme.font
-                                font.pixelSize: 10
+                                font.pixelSize: Math.round(10 * root.k)
                                 lineHeightMode: Text.FixedHeight
-                                lineHeight: 11
+                                lineHeight: Math.round(11 * root.k)
                             }
                         }
                         layer.enabled: true
@@ -355,11 +374,11 @@ Scope {
                         spacing: 12
                         Text {
                             text: (Quickshell.env("USER") ?? "root") + "@" + (root.host || "nook")
-                            color: Theme.ink; font.family: Theme.pixel; font.pixelSize: 22
+                            color: Theme.ink; font.family: Theme.pixel; font.pixelSize: Math.round(22 * root.k)
                         }
-                        Mono { text: "kernel " + root.kernel.split("-")[0]; color: Theme.muted; font.pixelSize: Theme.small }
-                        Mono { text: "up " + root.uptime; color: Theme.muted; font.pixelSize: Theme.small }
-                        Mono { text: "● hyprland"; color: Theme.aqua; font.pixelSize: Theme.small }
+                        Mono { text: "kernel " + root.kernel.split("-")[0]; color: Theme.muted; font.pixelSize: Math.round(Theme.small * root.k) }
+                        Mono { text: "up " + root.uptime; color: Theme.muted; font.pixelSize: Math.round(Theme.small * root.k) }
+                        Mono { text: "● hyprland"; color: Theme.aqua; font.pixelSize: Math.round(Theme.small * root.k) }
                     }
                 }
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.line; opacity: 0.8 }
@@ -370,7 +389,7 @@ Scope {
                     Layout.margins: 16
                     Layout.topMargin: 12
                     Layout.bottomMargin: 12
-                    implicitHeight: 34
+                    implicitHeight: Math.round(34 * root.k)
                     radius: Theme.radiusSm
                     color: Theme.bg000
                     border.width: 1
@@ -392,7 +411,7 @@ Scope {
                             font.family: Theme.font
                             font.pixelSize: Theme.body
                             cursorDelegate: Rectangle {
-                                width: 8; height: 16
+                                width: Math.round(8 * root.k); height: Math.round(16 * root.k)
                                 color: Theme.aqua
                                 SequentialAnimation on opacity {
                                     loops: Animation.Infinite; running: Ui.launcherOpen
@@ -448,7 +467,7 @@ Scope {
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: 300
+                        Layout.preferredWidth: Math.round(300 * root.k)
                         Layout.alignment: Qt.AlignTop
                         spacing: 1
                         Label {
@@ -467,7 +486,7 @@ Scope {
                                 readonly property bool selected: at === root.sel && root.zone === "apps"
                                 readonly property color hue: Theme[modelData.hue] ?? Theme.amber
                                 Layout.fillWidth: true
-                                implicitHeight: 24
+                                implicitHeight: Math.round(24 * root.k)
                                 radius: Theme.radiusSm
                                 color: selected ? Theme.soft(Theme.cyan) : rowArea.containsMouse ? Theme.bg300 : "transparent"
                                 border.width: selected ? 1 : 0
@@ -481,19 +500,19 @@ Scope {
                                     }
                                     Image {
                                         source: Icons.url(row.modelData.power ? "power" : row.modelData.tab ? "globe" : root.iconOf(row.modelData.entry, row.modelData.hue), row.hue.toString())
-                                        sourceSize: Qt.size(16, 16)
-                                        Layout.preferredWidth: 16; Layout.preferredHeight: 16
+                                        sourceSize: Qt.size(Math.round(16 * root.k), Math.round(16 * root.k))
+                                        Layout.preferredWidth: Math.round(16 * root.k); Layout.preferredHeight: Math.round(16 * root.k)
                                         layer.enabled: true
                                         layer.effect: MultiEffect { shadowEnabled: true; shadowColor: row.hue; shadowBlur: 0.4; shadowOpacity: 0.6; shadowHorizontalOffset: 0; shadowVerticalOffset: 0 }
                                     }
-                                    Mono { text: row.modelData.label + (row.modelData.power && root.armed === row.modelData.power.id ? "?" : ""); color: row.hue; Layout.maximumWidth: 150; elide: Text.ElideRight; font.bold: !!row.modelData.power && root.armed === row.modelData.power.id }
+                                    Mono { text: row.modelData.label + (row.modelData.power && root.armed === row.modelData.power.id ? "?" : ""); color: row.hue; Layout.maximumWidth: Math.round(150 * root.k); elide: Text.ElideRight; font.bold: !!row.modelData.power && root.armed === row.modelData.power.id }
                                     Mono { text: ".".repeat(60); color: Theme.faint; Layout.fillWidth: true; clip: true; elide: Text.ElideNone }
                                     Mono {
                                         text: row.modelData.tab ? root.hostOf(row.modelData.tab.url)
                                             : !row.modelData.power ? root.binOf(row.modelData.entry)
                                             : root.armed === row.modelData.power.id ? "⏎ again" : "alt " + row.modelData.power.cap.toLowerCase()
                                         color: row.modelData.power && root.armed === row.modelData.power.id ? Theme.orange : Theme.muted
-                                        Layout.maximumWidth: 90; elide: Text.ElideRight
+                                        Layout.maximumWidth: Math.round(90 * root.k); elide: Text.ElideRight
                                     }
                                 }
                                 MouseArea {
@@ -509,21 +528,21 @@ Scope {
                             visible: root.results.length === 0
                             text: root.query === "" ? "no pinned apps · edit config/apps.conf" : "λ: command not found: " + root.query
                             color: root.query === "" ? Theme.faint : Theme.orange
-                            font.pixelSize: Theme.small
+                            font.pixelSize: Math.round(Theme.small * root.k)
                             Layout.leftMargin: 6
                         }
                         Mono {
                             readonly property int below: root.results.length - root.offset - root.maxRows
                             visible: root.results.length > root.maxRows
                             text: (below > 0 ? "↓ " + below + " more" : "end of list") + (root.offset > 0 ? " · ↑ " + root.offset + " above" : "")
-                            color: Theme.faint; font.pixelSize: Theme.small
+                            color: Theme.faint; font.pixelSize: Math.round(Theme.small * root.k)
                             Layout.leftMargin: 6
                         }
                     }
 
                     ColumnLayout {
-                        Layout.preferredWidth: 196
-                        Layout.maximumWidth: 196
+                        Layout.preferredWidth: Math.round(196 * root.k)
+                        Layout.maximumWidth: Math.round(196 * root.k)
                         Layout.alignment: Qt.AlignTop
                         spacing: 2
                         Label { text: "SYS // LIVE"; Layout.bottomMargin: 5 }
@@ -537,7 +556,7 @@ Scope {
                             Text {
                                 required property var modelData
                                 textFormat: Text.RichText
-                                font.family: Theme.font; font.pixelSize: Theme.small
+                                font.family: Theme.font; font.pixelSize: Math.round(Theme.small * root.k)
                                 text: `<span style="color:${Theme.muted}">${modelData.k} </span>`
                                     + `<span style="color:${Theme.faint}">[</span>`
                                     + `<span style="color:${modelData.hue}">${"█".repeat(Math.round(modelData.v / 10))}</span>`
@@ -547,29 +566,29 @@ Scope {
                         }
                         Text {
                             textFormat: Text.RichText
-                            font.family: Theme.font; font.pixelSize: Theme.small
+                            font.family: Theme.font; font.pixelSize: Math.round(Theme.small * root.k)
                             text: `<span style="color:${Theme.muted}">net </span><span style="color:${Theme.cyan}">↓ ${Stats.rate(Stats.rx)} ↑ ${Stats.rate(Stats.tx)}</span>`
                         }
                         Text {
                             textFormat: Text.RichText
-                            font.family: Theme.font; font.pixelSize: Theme.small
+                            font.family: Theme.font; font.pixelSize: Math.round(Theme.small * root.k)
                             text: `<span style="color:${Theme.muted}">ws  </span><span style="color:${Theme.gold}">${Hyprland.workspaces.values.length} open · on ${Hyprland.focusedMonitor?.activeWorkspace?.id ?? "?"}</span>`
                         }
                         Mono {
                             Layout.topMargin: 8
                             text: root.hexdump(root.query)
                             color: Theme.faint
-                            font.pixelSize: Theme.label
+                            font.pixelSize: Math.round(Theme.label * root.k)
                             lineHeightMode: Text.FixedHeight
-                            lineHeight: 14
+                            lineHeight: Math.round(14 * root.k)
                         }
                         Mono {
                             Layout.topMargin: 8
                             text: " /\\_/\\  \n( o.o ) \n > ^ <  \n/  λ  \\ "
                             color: Theme.faint
-                            font.pixelSize: Theme.label
+                            font.pixelSize: Math.round(Theme.label * root.k)
                             lineHeightMode: Text.FixedHeight
-                            lineHeight: 11
+                            lineHeight: Math.round(11 * root.k)
                         }
                     }
                 }
@@ -593,7 +612,7 @@ Scope {
                             readonly property bool armedHere: root.armed === modelData.id
                             readonly property bool picked: root.zone === "power" && root.psel === index
                             implicitWidth: pwText.implicitWidth + pwKey.implicitWidth + 20
-                            implicitHeight: 22
+                            implicitHeight: Math.round(22 * root.k)
                             radius: Theme.radiusSm
                             color: armedHere ? hue : pwArea.containsMouse || picked ? Theme.soft(hue) : "transparent"
                             border.width: picked ? 2 : 1
@@ -605,7 +624,7 @@ Scope {
                                     id: pwText
                                     text: pw.armedHere ? pw.modelData.id + "?" : pw.modelData.id
                                     color: pw.armedHere ? Theme.onAccent : pw.hue
-                                    font.pixelSize: Theme.small
+                                    font.pixelSize: Math.round(Theme.small * root.k)
                                     font.bold: pw.armedHere
                                 }
                                 // the alt key, as a faint cap
@@ -614,7 +633,7 @@ Scope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: "alt " + pw.modelData.cap.toLowerCase()
                                     color: pw.armedHere ? Theme.onAccent : Theme.faint
-                                    font.pixelSize: Theme.label
+                                    font.pixelSize: Math.round(Theme.label * root.k)
                                 }
                             }
                             MouseArea { id: pwArea; anchors.fill: parent; hoverEnabled: true; onClicked: root.pressPower(pw.modelData) }
@@ -627,7 +646,7 @@ Scope {
                             : root.armed !== "" ? "⏎ again: " + root.armed
                             : "↑↓ ⏎ · tab power"
                         color: root.armed !== "" ? Theme.orange : Theme.faint
-                        font.pixelSize: Theme.label
+                        font.pixelSize: Math.round(Theme.label * root.k)
                     }
                 }
             }

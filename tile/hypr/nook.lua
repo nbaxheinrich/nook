@@ -39,6 +39,9 @@ hl.on("hyprland.start", function()
         .. "; kbuildsycoca6 >/dev/null 2>&1; nook-session-look hyprland; { nook-autostart start & }; exec nook-shell")  -- Ramen icons for KDE apps, then the shell (restarted if it crashes)
     hl.exec_cmd("mako")                                 -- notifications
     hl.exec_cmd("hypridle")                             -- lock when idle
+    -- On Wayland the copied content lives in the app it came from: close it and the clipboard is
+    -- empty. clipman keeps the last text and serves it again when that app is gone.
+    hl.exec_cmd("command -v clipman >/dev/null && exec wl-paste -t text --watch clipman store")
 end)
 
 hl.on("hyprland.shutdown", function()
@@ -99,8 +102,8 @@ hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 -------------------------------------------------------------------------------
 hl.config({
     general = {
-        gaps_in     = 6,                                -- gap-in
-        gaps_out    = 6,                                -- edge (= gap-in): screen edges, the bar
+        gaps_in     = 2,                                -- gap-in: 4 px between two windows
+        gaps_out    = 4,                                -- edge (Theme.edge): screen edges, the bar
         border_size = 2,
         col = {
             -- the neon sign: cyan → red, slowly rotating (borderangle below)
@@ -125,10 +128,10 @@ hl.config({
         },
         shadow = {
             enabled        = true,
-            range          = 12,                        -- about the bar's neon halo
+            range          = 6,                         -- short: gone within the gap between windows
             render_power   = 3,
             -- glow-focus halo in the border's cyan → red; the angle turns with it (below)
-            color          = { colors = { rgba(C.cyan, "66"), rgba(C.red, "66") }, angle = 45 },
+            color          = { colors = { rgba(C.cyan, "44"), rgba(C.red, "44") }, angle = 45 },
             color_inactive = "rgba(00000066)",
         },
     },
@@ -175,7 +178,7 @@ _G.nook_glow_timer = hl.timer(function()
     glow_tick = (glow_tick + 1) % (GLOW_LOOP // GLOW_MS)
     local angle = (45 + 360 * bezier(glow_tick * GLOW_MS / GLOW_LOOP)) % 360
     hl.config({ decoration = { shadow = {
-        color = { colors = { rgba(C.cyan, "66"), rgba(C.red, "66") }, angle = math.floor(angle) },
+        color = { colors = { rgba(C.cyan, "44"), rgba(C.red, "44") }, angle = math.floor(angle) },
     } } })
 end, { timeout = GLOW_MS, type = "repeat" })
 
@@ -183,8 +186,12 @@ end, { timeout = GLOW_MS, type = "repeat" })
 -- layer surfaces (Quickshell) and window rules
 -------------------------------------------------------------------------------
 for _, ns in ipairs({ "nook-bar", "nook-cheatsheet", "nook-widgets", "nook-launcher", "nook-control" }) do
-    hl.layer_rule({ match = { namespace = "^" .. ns .. "$" }, blur = true, ignore_alpha = 0.05 })
+    -- blur only behind the panels themselves (bg at 35–100 %), not behind their glows: a glow
+    -- fades to 0, and blurring it down to 5 % left a hard-edged blurred box around every halo
+    hl.layer_rule({ match = { namespace = "^" .. ns .. "$" }, blur = true, ignore_alpha = 0.3 })
 end
+-- the launcher and the control center fade and slide in themselves (Launcher.qml, ControlCenter.qml)
+hl.layer_rule({ match = { namespace = "^nook-(launcher|control)$" }, no_anim = true })
 
 -- dialogs and pickers float
 hl.window_rule({ match = { class = "^(org.kde.polkit-kde-authentication-agent-1|hyprpolkitagent|pavucontrol|org.pulseaudio.pavucontrol|nm-connection-editor|blueman-manager)$" }, float = true })
@@ -309,6 +316,7 @@ local function MS(k) return mod .. " + SHIFT + " .. k end
 bind(M("RETURN"),  hl.dsp.exec_cmd(term),              "apps: terminal")
 bind(M("SPACE"),   hl.dsp.exec_cmd(menu),              "apps: hack menu")
 bind(M("A"),       hl.dsp.exec_cmd("qs -c nook ipc call control last"),         "settings: control center")
+bind(M("C"),       hl.dsp.exec_cmd("qs -c nook ipc call control toggle cal"),   "apps: calendar")
 bind(M("N"),       hl.dsp.exec_cmd("qs -c nook ipc call control toggle net"),   "settings: net · wifi, ethernet")
 bind(MS("B"),      hl.dsp.exec_cmd("qs -c nook ipc call control toggle bt"),    "settings: bluetooth")
 bind(M("E"),       hl.dsp.exec_cmd(files),             "apps: files")

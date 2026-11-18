@@ -1,4 +1,4 @@
-// What the shell shows, picked live in the control center's `nook` tab (or over IPC) and kept in
+// What the shell shows and how the bar looks, picked live in the control center's `nook` tab (or over IPC) and kept in
 // ~/.config/nook/shell.json. Only what's switched OFF is stored, so new parts show up by default.
 //   qs -c nook ipc call nook toggle|on|off bar.cpu        qs -c nook ipc call nook list
 pragma Singleton
@@ -34,6 +34,46 @@ Singleton {
     ]
     readonly property var all: bar.concat(widgets, desk)
 
+    // how the bar looks: the modules (pills) and the strip that joins them
+    readonly property var pillStyles: [
+        { id: "box",     note: "filled, square corners, hairline" },
+        { id: "round",   note: "filled capsules" },
+        { id: "glass",   note: "see-through, highlight on top" },
+        { id: "chip",    note: "solid dark, coloured side bar" },
+        { id: "tab",     note: "rises from the screen edge" },
+        { id: "neon",    note: "glowing outline tube" },
+        { id: "bracket", note: "no fill, [ corner marks ]" },
+        { id: "under",   note: "no fill, a neon underline" },
+        { id: "text",    note: "nothing, just the glowing text" }
+    ]
+    readonly property var stripStyles: [
+        { id: "strip",    note: "dark strip, hairline on top" },
+        { id: "glow",     note: "dark strip, neon line on top" },
+        { id: "baseline", note: "no strip, neon line on the edge" },
+        { id: "float",    note: "no strip, pills float" }
+    ]
+    readonly property var barLayouts: [
+        { id: "split",  note: "menu + workspaces left, clock right" },
+        { id: "center", note: "workspaces in the middle" },
+        { id: "clock",  note: "clock in the middle" },
+        { id: "island", note: "everything together in the middle" },
+        { id: "corner", note: "everything on the left" }
+    ]
+    readonly property string barLayout: adapter.barLayout
+    readonly property string pillStyle: adapter.pillStyle
+    readonly property string stripStyle: adapter.stripStyle
+    function setStyle(kind, id) {
+        const list = kind === "pill" ? pillStyles : kind === "strip" ? stripStyles : kind === "layout" ? barLayouts : [];
+        if (!list.some(x => x.id === id)) return false;
+        if (kind === "pill") adapter.pillStyle = id; else if (kind === "strip") adapter.stripStyle = id; else adapter.barLayout = id;
+        return true;
+    }
+    function nextStyle(kind) {
+        const list = kind === "pill" ? pillStyles : kind === "strip" ? stripStyles : barLayouts;
+        const cur = kind === "pill" ? pillStyle : kind === "strip" ? stripStyle : barLayout;
+        setStyle(kind, list[(list.findIndex(x => x.id === cur) + 1) % list.length].id);
+    }
+
     readonly property list<string> hidden: adapter.hidden
     function shown(id) { return root.hidden.indexOf(id) < 0 }
     function set(id, on) {
@@ -47,7 +87,16 @@ Singleton {
         function toggle(id: string): void { root.toggle(id) }
         function on(id: string): void { root.set(id, true) }
         function off(id: string): void { root.set(id, false) }
-        function list(): string { return root.all.map(p => (root.shown(p.id) ? "on   " : "off  ") + p.id).join("\n") }
+        function list(): string {
+            return root.all.map(p => (root.shown(p.id) ? "on   " : "off  ") + p.id).join("\n")
+                + "\npill   " + root.pillStyle + "\nstrip  " + root.stripStyle + "\nlayout " + root.barLayout;
+        }
+        // qs -c nook ipc call nook style pill round · … style strip float
+        function style(kind: string, id: string): string {
+            return root.setStyle(kind, id) ? kind + " " + id
+                : "unknown; pill: " + root.pillStyles.map(x => x.id).join(" ") + " · strip: " + root.stripStyles.map(x => x.id).join(" ")
+                  + " · layout: " + root.barLayouts.map(x => x.id).join(" ");
+        }
     }
 
     FileView {
@@ -59,6 +108,9 @@ Singleton {
         JsonAdapter {
             id: adapter
             property list<string> hidden: []
+            property string pillStyle: "bracket"
+            property string stripStyle: "float"
+            property string barLayout: "split"
         }
     }
 }

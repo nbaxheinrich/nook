@@ -123,7 +123,7 @@ It goes through `xdg-desktop-portal-hyprland` (the picker appears when an app as
 | windows | `SUPER Q` close · `SUPER F` fullscreen · `SUPER V` float · `SUPER P` pseudo · `SUPER J` flip split · `SUPER ←↑→↓` focus · `SUPER ⇧ ←↑→↓` move · `SUPER` + drag |
 | workspaces | 1–9, not tied to a screen; at login the screens show 1, 2 … from the left. `SUPER n` brings workspace n to the focused screen; if the other screen shows it, the two trade · `SUPER ⇧ n` sends the window to n · `SUPER S` scratchpad · `SUPER ALT S` to scratchpad. An unplugged screen's workspaces stay and `SUPER n` gets them back |
 | settings | `SUPER A` control center (last tab) · `SUPER N` net (wifi, ethernet) · `SUPER ⇧ B` bluetooth · `SUPER K` keyboard EurKEY ⇄ German |
-| system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), saved to ~/Pictures/Screenshots + clipboard · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
+| system | `SUPER G` game mode · `SUPER ⇧ P` screens extend ⇄ duplicate · `SUPER L` lock · `SUPER ⇧ S` / `W` / `A` screenshot area / window / screen (also `PRINT`), opened in the satty editor: arrows, text, blur, crop … ⏎ saves to ~/Pictures/Screenshots + clipboard, Esc drops it · `SUPER ⇧ ALT S` area and `SUPER ⇧ PRINT` screen without the editor · `SUPER /` cheatsheet · `SUPER ⇧ R` reload shell · `SUPER ⇧ E` exit |
 
 ## Known gaps
 

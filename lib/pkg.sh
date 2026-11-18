@@ -39,6 +39,7 @@ pkg_has_name() {  # one distro package name, or @vt323
     @quickshell) have qs ;;
     @lazygit) have lazygit ;;
     @opencode) have opencode ;;
+    @satty) have satty || flatpak info org.satty.Satty >/dev/null 2>&1 ;;
     @*) return 1 ;;
     *) case "$(distro_family)" in
          fedora|suse) rpm -q --whatprovides "$1" >/dev/null 2>&1 ;;

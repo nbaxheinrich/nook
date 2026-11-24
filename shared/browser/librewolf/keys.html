@@ -1,0 +1,162 @@
+<!doctype html>
+<!-- nook — LibreWolf keys. Drawn in haver, recoloured on install; LibreWolf's home page, so Alt+Home opens it. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>keys // librewolf</title>
+<style>
+  :root {
+    --bg000: #00040b; --bg100: #000914; --bg200: #000f20; --line: #15305a;
+    --ink: #e6e9f2; --muted: #a0a7c2; --faint: #56628a; --dots: #001226;
+    --focus: #cdfb17; --net: #3d8bff; --files: #7fb4ff; --session: #e9ff8a;
+    --system: #a8c8ff; --media: #6f8cff; --dev: #9ccc00; --danger: #ff5c5c;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 16px 48px;
+    background: radial-gradient(circle, var(--dots) 1.2px, transparent 1.4px) 0 0 / 16px 16px, var(--bg000);
+    color: var(--ink); font: 13px/1.5 "JetBrains Mono", monospace;
+  }
+  main { max-width: 1180px; margin: 0 auto; }
+  header { --hue: var(--focus); display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  h1 { margin: 0; font-size: 13px; font-weight: 400; color: var(--faint); white-space: nowrap; }
+  h1 b { color: var(--focus); }
+  header p { margin: 0; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  section {
+    --hue: var(--focus);
+    background: var(--bg100); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px 12px;
+  }
+  h2 {
+    margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+    font-size: 11px; letter-spacing: 1.4px; color: var(--hue);
+  }
+  h2 span { float: right; color: var(--faint); letter-spacing: 0; }
+  dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; align-items: baseline; }
+  dt { white-space: nowrap; }
+  dd { margin: 0; color: var(--muted); }
+  kbd {
+    display: inline-block; min-width: 1.6em; padding: 0 5px; text-align: center;
+    font: inherit; font-size: 12px; color: var(--ink);
+    border: 1px solid color-mix(in srgb, var(--hue) 55%, transparent); border-radius: 2px;
+    background: color-mix(in srgb, var(--hue) 10%, transparent);
+  }
+  code { color: var(--hue); }
+  .tabs { --hue: var(--focus); } .page { --hue: var(--net); } .find { --hue: var(--files); }
+  .url { --hue: var(--session); } .win { --hue: var(--system); } .media { --hue: var(--media); }
+  .hint { --hue: var(--dev); grid-column: 1 / -1; }
+  .hint ol { margin: 0; padding-left: 20px; color: var(--muted); }
+  .hint li { margin: 3px 0; }
+  .hint li::marker { color: var(--dev); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>╭─[ <b>librewolf // keys</b> ]─╮</h1>
+    <p><kbd>Alt</kbd> <kbd>Home</kbd> brings this back · <kbd>Ctrl</kbd> <kbd>L</kbd> leaves it</p>
+  </header>
+
+  <div class="grid">
+    <section class="tabs">
+      <h2>TABS // SIDEBAR <span>[01] = Alt 1</span></h2>
+      <dl>
+        <dt><kbd>Alt</kbd> <kbd>1</kbd>‥<kbd>8</kbd></dt><dd>tab [01]‥[08]</dd>
+        <dt><kbd>Alt</kbd> <kbd>9</kbd></dt><dd>last tab</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>Tab</kbd></dt><dd>next tab (<kbd>⇧</kbd> back)</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>PgDn</kbd> <kbd>PgUp</kbd></dt><dd>tab below / above</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>PgDn</kbd> <kbd>PgUp</kbd></dt><dd>move the tab down / up</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>A</kbd></dt><dd>search open tabs</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>T</kbd></dt><dd>new tab</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>W</kbd></dt><dd>close tab</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>T</kbd></dt><dd>reopen closed tab</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>M</kbd></dt><dd>mute tab</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Z</kbd></dt><dd>sidebar open / fold</dd>
+      </dl>
+    </section>
+
+    <section class="url">
+      <h2>URL BAR // GO</h2>
+      <dl>
+        <dt><kbd>Ctrl</kbd> <kbd>L</kbd> · <kbd>Alt</kbd> <kbd>D</kbd></dt><dd>into the url bar</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>web search</dd>
+        <dt><kbd>Alt</kbd> <kbd>⏎</kbd></dt><dd>open in a new tab</dd>
+        <dt><kbd>↓</kbd> <kbd>↑</kbd> <kbd>⏎</kbd></dt><dd>pick a suggestion</dd>
+        <dt><kbd>⇧</kbd> <kbd>Del</kbd></dt><dd>drop a suggestion from history</dd>
+        <dt><code>% </code>word</dt><dd>only open tabs</dd>
+        <dt><code>* </code>word</dt><dd>only bookmarks</dd>
+        <dt><code>^ </code>word</dt><dd>only history</dd>
+        <dt><kbd>Esc</kbd></dt><dd>back to the page</dd>
+      </dl>
+    </section>
+
+    <section class="find">
+      <h2>FIND // FOLLOW</h2>
+      <dl>
+        <dt><kbd>'</kbd> text</dt><dd>find a link by its text, <kbd>⏎</kbd> follows it</dd>
+        <dt><kbd>/</kbd> text</dt><dd>find on the page, as you type</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>F</kbd></dt><dd>find bar</dd>
+        <dt><kbd>F3</kbd> · <kbd>⇧</kbd> <kbd>F3</kbd></dt><dd>next / previous match</dd>
+        <dt><kbd>Tab</kbd> · <kbd>⇧</kbd> <kbd>Tab</kbd></dt><dd>next / previous link or field</dd>
+        <dt><kbd>⏎</kbd></dt><dd>follow the focused link</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⏎</kbd></dt><dd>follow it in a new tab</dd>
+        <dt><kbd>F7</kbd></dt><dd>caret: a cursor in the page, select with <kbd>⇧</kbd></dd>
+      </dl>
+    </section>
+
+    <section class="page">
+      <h2>PAGE // MOVE</h2>
+      <dl>
+        <dt><kbd>Space</kbd> · <kbd>⇧</kbd> <kbd>Space</kbd></dt><dd>a screen down / up</dd>
+        <dt><kbd>↓</kbd> <kbd>↑</kbd></dt><dd>scroll a bit</dd>
+        <dt><kbd>Home</kbd> · <kbd>End</kbd></dt><dd>top / bottom</dd>
+        <dt><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>back / forward</dd>
+        <dt><kbd>F5</kbd> · <kbd>Ctrl</kbd> <kbd>R</kbd></dt><dd>reload</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>R</kbd></dt><dd>reload, skip the cache</dd>
+        <dt><kbd>Esc</kbd></dt><dd>stop loading</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>0</kbd></dt><dd>zoom in / out / reset</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>R</kbd></dt><dd>reader view</dd>
+      </dl>
+    </section>
+
+    <section class="win">
+      <h2>WINDOW // TOOLS</h2>
+      <dl>
+        <dt><kbd>Ctrl</kbd> <kbd>N</kbd></dt><dd>new window</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>P</kbd></dt><dd>private window</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>N</kbd></dt><dd>reopen closed window</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>D</kbd></dt><dd>bookmark this page</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>B</kbd> · <kbd>Ctrl</kbd> <kbd>H</kbd></dt><dd>bookmarks / history sidebar</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>Y</kbd></dt><dd>downloads</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>S</kbd></dt><dd>screenshot</dd>
+        <dt><kbd>F10</kbd> · <kbd>Alt</kbd></dt><dd>menu bar</dd>
+        <dt><kbd>F11</kbd></dt><dd>fullscreen</dd>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>I</kbd></dt><dd>dev tools</dd>
+      </dl>
+    </section>
+
+    <section class="media">
+      <h2>VIDEO // MEDIA</h2>
+      <dl>
+        <dt><kbd>Ctrl</kbd> <kbd>⇧</kbd> <kbd>]</kbd></dt><dd>picture in picture</dd>
+        <dt><kbd>Space</kbd> · <kbd>K</kbd></dt><dd>play / pause (focused video)</dd>
+        <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>seek 5 s (focused video)</dd>
+        <dt><kbd>M</kbd> · <kbd>F</kbd></dt><dd>mute / fullscreen (focused video)</dd>
+      </dl>
+    </section>
+
+    <section class="hint">
+      <h2>NO MOUSE // HOW</h2>
+      <ol>
+        <li><kbd>Ctrl</kbd> <kbd>L</kbd>, type, <kbd>⏎</kbd>: the url bar finds open tabs, bookmarks and history too.</li>
+        <li>On the page: <kbd>'</kbd> and a few letters of a link, then <kbd>⏎</kbd> (or <kbd>Ctrl</kbd> <kbd>⏎</kbd> for a new tab).</li>
+        <li>Forms: <kbd>Tab</kbd> between fields, <kbd>Space</kbd> ticks boxes, <kbd>Alt</kbd> <kbd>↓</kbd> opens a dropdown.</li>
+        <li>Between tabs: <kbd>Alt</kbd> and the tab's <code>[number]</code> in the sidebar.</li>
+      </ol>
+    </section>
+  </div>
+</main>
+</body>
+</html>

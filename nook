@@ -15,7 +15,7 @@
 #                  [--tile-parts=a,b,…] [--plasma-parts=a,b,…] [--packages=a,b,…] [--no-deps]
 #   ./nook setup [STEP…]     screens, keyboard, widgets, shell, browser, session, wled: asks, you pick
 #   ./nook palette NAME      switch every installed part to NAME (no packages, no sudo except login)
-#   ./nook uninstall         put the Plasma setup back and remove the login theme
+#   ./nook uninstall         put the Plasma setup back, remove the login theme and LibreWolf's look
 #   ./nook help
 set -euo pipefail
 NOOK="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
@@ -180,7 +180,7 @@ preview() {
             printf '  %-7s %s\n' "shell:" "$(pkg_default $(for t in $shell; do echo "shell.$t"; done) | paste -sd' ' | fold -s -w 46 | sed '2,$s/^/          /')"
             printf '\n off: only configs and themes, no sudo, no login screen\n' ;;
     setup)  printf ' walks you through what nook can'"'"'t guess, one question at a time;\n every step can be skipped:\n\n'
-            printf '  screens    order, rotation, refresh rate → machine.lua\n  keyboard   layouts (SUPER K switches)\n  widgets    weather place, homelab hosts, calendar\n  shell      zsh as your login shell\n  browser    default browser, the nook tabs extension\n  session    Hyprland preselected on the login screen\n  wled       find your LED controllers\n\n ./nook setup STEP runs one of them alone.\n' ;;
+            printf '  screens    order, rotation, refresh rate → machine.lua\n  keyboard   layouts (SUPER K switches)\n  widgets    weather place, homelab hosts, calendar\n  shell      zsh as your login shell\n  browser    default browser, the nook tabs extension,\n             the nook look for LibreWolf\n  session    Hyprland preselected on the login screen\n  wled       find your LED controllers\n\n ./nook setup STEP runs one of them alone.\n' ;;
     part:*) local w=${1#part:}; w=${w%%:*}; local pt=${1##*:}
             printf ' %s\n\n' "$(part_desc "$w:$pt")"
             [ "$w" = tile ] && { printf ' packages:\n'; pkg_rows "tile.$pt" | while IFS=$'\t' read -r id on d; do printf '  %-15s %s\n' "$id" "$d"; done; } ;;
@@ -376,11 +376,15 @@ case "${1:-}" in
     p=${2:-}; [ -f "$NOOK/palettes/$p.json" ] || die "usage: ./nook palette NAME   (have: $(palettes | paste -sd' '))"
     plasma_palette=$p tile_palette=$p shell_palette=$p login_palette=$p deps=0
     run_all
-    [ "$login" = 1 ] && "$NOOK/shared/login/login.sh" --palette="$p" ;;
+    [ "$login" = 1 ] && "$NOOK/shared/login/login.sh" --palette="$p"
+    [ -f "$NOOK_STATE/librewolf-palette" ] && "$NOOK/shared/browser/librewolf.sh" --palette="$p"
+    true ;;
   setup) shift; python3 -I "$NOOK/lib/setup.py" "$@" ;;
   uninstall)
     "$NOOK/plasma/uninstall.sh" || true
-    "$NOOK/shared/login/login.sh" --remove || true ;;
+    "$NOOK/shared/login/login.sh" --remove || true
+    [ -f "$NOOK_STATE/librewolf-palette" ] && { "$NOOK/shared/browser/librewolf.sh" --remove || true; }
+    true ;;
   help|-h|--help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) die "unknown command $1 (./nook help)" ;;
 esac

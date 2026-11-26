@@ -373,8 +373,31 @@ def step_shell():
 # ── browser ──────────────────────────────────────────────────────────────────
 BROWSERS = ["brave-browser", "com.brave.Browser", "google-chrome", "com.google.Chrome", "chromium",
             "chromium-browser", "org.chromium.Chromium", "firefox", "org.mozilla.firefox",
-            "librewolf", "zen", "vivaldi-stable"]
+            "librewolf", "io.gitlab.librewolf-community", "zen", "vivaldi-stable"]
 CHROMIUM = ("brave", "chrome", "chromium", "vivaldi")
+
+
+def nook_palette():
+    """the palette of the desktop this runs in: tile's under Hyprland, else Plasma's"""
+    try:
+        conf = (STATE / "nook.conf").read_text()
+    except OSError:
+        conf = ""
+    key = "tile_palette" if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") else "plasma_palette"
+    m = re.search(rf'^(?:declare -x )?{key}="?([\w-]+)"?$', conf, re.M)
+    return m[1] if m else "haver"
+
+
+def librewolf_look():
+    """the nook look for LibreWolf (shared/browser/librewolf.sh), in the desktop's palette"""
+    palette = nook_palette()
+    say(f"LibreWolf can wear the nook look in {palette}: dot grid, λ prompt in the url bar,")
+    say("numbered vertical tabs that fold to icons and open on hover, the palette on its own pages,")
+    say("and a keys cheatsheet as the start page (Alt+Home) for browsing without a mouse.")
+    if not yes("dress LibreWolf in it?"):
+        return
+    subprocess.call([str(REPO / "shared/browser/librewolf.sh"), f"--palette={palette}"])
+    say(dim("./nook palette NAME recolours it along with the rest; librewolf.sh --remove takes it off"))
 
 
 def step_browser():
@@ -390,6 +413,8 @@ def step_browser():
         if new != cur and run(["xdg-settings", "set", "default-web-browser", new + ".desktop"]):
             ok(f"default browser: {new}")
             cur = new
+    if "librewolf" in cur:
+        librewolf_look()
     if not any(c in cur for c in CHROMIUM):
         say(dim("the launcher's tabs need Brave, Chrome or Chromium; skipped"))
         return

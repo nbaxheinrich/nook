@@ -1,0 +1,290 @@
+/* nook — LibreWolf browser chrome. Drawn in the haver palette; shared/browser/librewolf.sh
+ * recolours it to the one you use (lib/recolor.py). Needs LibreWolf 160+ (its token names).
+ * Looks like nook-tile: navy grounds on a dot grid, box pills with a 1px line,
+ * lime focus bars, [01] numbering, NAME // labels, JetBrains Mono everywhere. */
+
+:root {
+  --nook-bg000: #00040b;
+  --nook-bg100: #000914;
+  --nook-bg200: #000f20;
+  --nook-bg300: #00182f;
+  --nook-line: #15305a;
+  --nook-ink: #e6e9f2;
+  --nook-muted: #a0a7c2;
+  --nook-faint: #56628a;
+  --nook-focus: #cdfb17;
+  --nook-session: #e9ff8a;
+  --nook-net: #3d8bff;
+  --nook-files: #7fb4ff;
+  --nook-system: #a8c8ff;
+  --nook-danger: #ff5c5c;
+  --nook-dots: #001226;
+  --nook-font: "JetBrains Mono", monospace;
+  --nook-radius: 4px;
+  --nook-dotgrid: radial-gradient(circle, var(--nook-dots) 1.2px, transparent 1.4px) 0 0 / 16px 16px;
+}
+
+/* ── the browser's own colour tokens ── */
+:root,
+:root[lwtheme] {
+  color-scheme: dark !important;
+
+  --toolbox-background-color: var(--nook-bg000) !important;
+  --toolbox-background-color-inactive: var(--nook-bg000) !important;
+  --toolbox-text-color: var(--nook-muted) !important;
+  --toolbox-text-color-inactive: var(--nook-faint) !important;
+  --toolbox-background-gradient: none !important;
+  --toolbar-background-color: transparent !important;
+  --toolbar-text-color: var(--nook-ink) !important;
+  --chrome-content-separator-color: var(--nook-line) !important;
+
+  --toolbarbutton-icon-fill: var(--nook-muted) !important;
+  --toolbarbutton-background-color-hover: var(--nook-bg300) !important;
+  --toolbarbutton-background-color-active: var(--nook-line) !important;
+  --toolbarbutton-border-radius: var(--nook-radius) !important;
+
+  --tab-background-color-selected: var(--nook-bg200) !important;
+  --tab-background-color-hover: var(--nook-bg100) !important;
+  --tab-text-color: var(--nook-muted) !important;
+  --tab-text-color-selected: var(--nook-ink) !important;
+  --tab-text-hover-color: var(--nook-ink) !important;
+  --tab-box-shadow-selected: none !important;
+  --tab-border-radius: var(--nook-radius) !important;
+
+  --toolbar-field-background-color: var(--nook-bg100) !important;
+  --toolbar-field-background-color-focus: var(--nook-bg000) !important;
+  --toolbar-field-text-color: var(--nook-ink) !important;
+  --toolbar-field-text-color-focus: var(--nook-ink) !important;
+  --toolbar-field-border-color: var(--nook-line) !important;
+  --toolbar-field-border-color-focus: var(--nook-focus) !important;
+  --urlbar-background-color: var(--nook-bg100) !important;
+  --urlbar-background-color-focus: var(--nook-bg000) !important;
+  --urlbar-box-background-color: var(--nook-bg300) !important;
+  --urlbar-box-background-color-hover: var(--nook-line) !important;
+  --urlbar-box-background-color-focus: var(--nook-bg300) !important;
+  --urlbar-box-background-color-active: var(--nook-line) !important;
+  --focus-outline-color: var(--nook-focus) !important;
+
+  --panel-background-color: var(--nook-bg100) !important;
+  --panel-text-color: var(--nook-ink) !important;
+  --panel-border-color: var(--nook-focus) !important;
+  --panel-separator-color: var(--nook-line) !important;
+  --sidebar-background-color: var(--nook-bg100) !important;
+  --sidebar-text-color: var(--nook-ink) !important;
+}
+
+/* ── one font, like the whole desktop ── */
+#navigator-toolbox,
+#urlbar,
+.urlbarView,
+menupopup,
+panel,
+#sidebar-box,
+#sidebar-main,
+sidebar-main,
+#tabbrowser-tabs,
+tooltip {
+  font-family: var(--nook-font) !important;
+}
+
+/* ── frame: navy on the wallpaper's dot grid ── */
+#navigator-toolbox,
+#titlebar,
+#TabsToolbar,
+#nav-bar,
+#browser {
+  background: var(--nook-dotgrid), var(--nook-bg000) !important;
+  color: var(--nook-muted) !important;
+}
+#navigator-toolbox {
+  border-bottom: 1px solid var(--nook-line) !important;
+}
+#nav-bar {
+  padding-block: 4px !important;
+}
+#PersonalToolbar {
+  background: transparent !important;
+  color: var(--nook-faint) !important;
+  border-top: 1px solid var(--nook-line) !important;
+}
+#PersonalToolbar .bookmark-item {
+  color: var(--nook-muted) !important;
+}
+#PersonalToolbar .bookmark-item:hover {
+  color: var(--nook-ink) !important;
+  box-shadow: inset 0 -2px 0 var(--nook-focus) !important;
+}
+
+/* ── toolbar buttons: muted, a lime bar underneath on hover ── */
+#nav-bar .toolbarbutton-1 > .toolbarbutton-icon,
+#nav-bar .toolbarbutton-1 > .toolbarbutton-badge-stack {
+  border-radius: var(--nook-radius) !important;
+}
+#nav-bar .toolbarbutton-1:not([disabled]):hover > .toolbarbutton-icon,
+#nav-bar .toolbarbutton-1:not([disabled]):hover > .toolbarbutton-badge-stack {
+  background-color: var(--nook-bg300) !important;
+  box-shadow: inset 0 -2px 0 var(--nook-focus) !important;
+  fill: var(--nook-focus) !important;
+}
+
+/* ── url bar: a box pill with a shell prompt in front ── */
+.urlbar-background {
+  background-color: var(--nook-bg100) !important;
+  border: 1px solid var(--nook-line) !important;
+  border-radius: var(--nook-radius) !important;
+  box-shadow: none !important;
+}
+#urlbar[focused] .urlbar-background,
+#urlbar[open] .urlbar-background {
+  background-color: var(--nook-bg000) !important;
+  border: 2px solid var(--nook-focus) !important;
+  outline: none !important;
+}
+.urlbar-input-container::before {
+  content: "λ ~/ >";
+  align-self: center;
+  padding-inline: 8px 2px;
+  color: var(--nook-focus);
+  font-weight: 700;
+  white-space: nowrap;
+}
+#urlbar,
+#urlbar-input {
+  color: var(--nook-ink) !important;
+  font-size: 12.5px !important;
+}
+#urlbar-input::placeholder {
+  color: var(--nook-faint) !important;
+  opacity: 1 !important;
+}
+#identity-box > *,
+#tracking-protection-icon-container {
+  fill: var(--nook-muted) !important;
+}
+.urlbarView-title {
+  color: var(--nook-ink) !important;
+}
+.urlbarView-url {
+  color: var(--nook-net) !important;
+}
+.urlbarView-row[selected] {
+  background-color: var(--nook-bg300) !important;
+  box-shadow: inset 3px 0 0 var(--nook-focus) !important;
+}
+
+/* ── vertical tabs: a sidebar card like the shell's panels ── */
+#sidebar-main,
+sidebar-main {
+  background: var(--nook-bg100) !important;
+  border-inline-end: 1px solid var(--nook-line) !important;
+}
+#vertical-tabs {
+  counter-reset: nook-tab;
+  flex-direction: column !important;
+}
+/* collapsed (icons only): no heading, no numbers */
+#vertical-tabs:has(#tabbrowser-tabs:not([expanded]))::before {
+  display: none;
+}
+#vertical-tabs::before {
+  content: "TABS // OPEN";
+  display: block;
+  padding: 10px 12px 8px;
+  margin: 0 6px 6px;
+  border-bottom: 1px solid var(--nook-line);
+  color: var(--nook-focus);
+  font: 700 11px var(--nook-font);
+  letter-spacing: 1.4px;
+}
+#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab {
+  counter-increment: nook-tab;
+}
+#tabbrowser-tabs[orient="vertical"][expanded] .tab-label::before {
+  content: "[" counter(nook-tab, decimal-leading-zero) "] ";
+  color: var(--nook-faint);
+}
+#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab[selected] .tab-label::before {
+  color: var(--nook-focus);
+}
+
+/* every tab: flat; selected = chip with a lime bar on the left, hover = a line bar */
+.tabbrowser-tab .tab-background {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-radius: var(--nook-radius) !important;
+}
+.tabbrowser-tab[selected] .tab-background {
+  background-color: var(--nook-bg300) !important;
+  box-shadow: inset 3px 0 0 var(--nook-focus) !important;
+}
+.tabbrowser-tab:not([selected]):hover .tab-background {
+  background-color: var(--nook-bg200) !important;
+  box-shadow: inset 3px 0 0 var(--nook-line) !important;
+}
+.tabbrowser-tab[multiselected] .tab-background {
+  box-shadow: inset 3px 0 0 var(--nook-net) !important;
+}
+.tabbrowser-tab .tab-label {
+  color: var(--nook-muted) !important;
+  font-size: 12px !important;
+}
+.tabbrowser-tab[selected] .tab-label {
+  color: var(--nook-ink) !important;
+}
+.tabbrowser-tab[attention] .tab-background,
+.tabbrowser-tab[titlechanged]:not([selected]) .tab-background {
+  box-shadow: inset 3px 0 0 var(--nook-danger) !important;
+}
+.tab-close-button:hover {
+  background-color: var(--nook-danger) !important;
+  fill: var(--nook-bg000) !important;
+}
+#tabs-newtab-button,
+#vertical-tabs-newtab-button {
+  color: var(--nook-faint) !important;
+}
+#tabs-newtab-button:hover,
+#vertical-tabs-newtab-button:hover {
+  color: var(--nook-focus) !important;
+  fill: var(--nook-focus) !important;
+}
+
+/* ── page area: framed like a card, a hairline round the page ── */
+#tabbrowser-tabbox {
+  outline: 1px solid var(--nook-line) !important;
+  box-shadow: none !important;
+}
+#tabbrowser-tabpanels,
+browser[type="content"] {
+  background-color: var(--nook-bg000) !important;
+}
+
+/* ── menus and popups: rounded, with a lime ring like the shell's popups ── */
+menupopup,
+panel {
+  --panel-background: var(--nook-bg100) !important;
+  --panel-color: var(--nook-ink) !important;
+  --panel-border-color: var(--nook-focus) !important;
+  --panel-border-radius: 6px !important;
+}
+menuitem[_moz-menuactive],
+menu[_moz-menuactive] {
+  background-color: var(--nook-bg300) !important;
+  color: var(--nook-ink) !important;
+  box-shadow: inset 3px 0 0 var(--nook-focus) !important;
+}
+tooltip {
+  background-color: var(--nook-bg100) !important;
+  color: var(--nook-ink) !important;
+  border: 1px solid var(--nook-line) !important;
+}
+
+/* ── window buttons: muted, close turns red ── */
+.titlebar-button {
+  fill: var(--nook-muted) !important;
+}
+.titlebar-close:hover {
+  background-color: var(--nook-danger) !important;
+  fill: var(--nook-bg000) !important;
+}

@@ -1,0 +1,65 @@
+/* nook — LibreWolf internal pages (new tab, settings, about:*). Drawn in haver, recoloured on install. */
+
+@-moz-document url("about:home"), url("about:newtab"), url("about:blank"),
+  url("about:privatebrowsing") {
+  :root,
+  body {
+    --newtab-background-color: #00040b !important;
+    --newtab-background-color-secondary: #000f20 !important;
+    --newtab-text-primary-color: #e6e9f2 !important;
+    --newtab-primary-action-background: #cdfb17 !important;
+    --newtab-element-hover-color: #00182f !important;
+    background: radial-gradient(circle, #001226 1.2px, transparent 1.4px) 0 0 / 16px 16px, #00040b !important;
+    color: #e6e9f2 !important;
+    font-family: "JetBrains Mono", monospace !important;
+  }
+  .search-wrapper .search-inner-wrapper,
+  .search-handoff-button,
+  #newtab-search-text {
+    background-color: #000914 !important;
+    border: 1px solid #15305a !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+    color: #e6e9f2 !important;
+  }
+  .search-wrapper .search-inner-wrapper:focus-within,
+  .search-handoff-button:focus {
+    border: 2px solid #cdfb17 !important;
+  }
+  .top-site-outer .tile {
+    background-color: #000f20 !important;
+    border: 1px solid #15305a !important;
+    border-radius: 4px !important;
+    box-shadow: none !important;
+  }
+  .top-site-outer:hover .tile {
+    box-shadow: inset 0 -3px 0 #cdfb17 !important;
+  }
+  .top-site-outer .title {
+    color: #a0a7c2 !important;
+  }
+}
+
+@-moz-document url-prefix("about:") {
+  :root {
+    --in-content-page-background: #00040b !important;
+    --in-content-page-color: #e6e9f2 !important;
+    --in-content-box-background: #000914 !important;
+    --in-content-box-border-color: #15305a !important;
+    --in-content-border-color: #15305a !important;
+    --in-content-accent-color: #cdfb17 !important;
+    --in-content-primary-button-background: #cdfb17 !important;
+    --in-content-primary-button-text-color: #00040b !important;
+    --color-accent-primary: #cdfb17 !important;
+    --color-accent-primary-hover: #e9ff8a !important;
+    --background-color-canvas: #00040b !important;
+    --background-color-box: #000914 !important;
+    --border-color: #15305a !important;
+    --border-color-card: #15305a !important;
+    --text-color: #e6e9f2 !important;
+    --text-color-deemphasized: #a0a7c2 !important;
+    --link-color: #3d8bff !important;
+    --button-text-color-primary: #00040b !important;
+    font-family: "JetBrains Mono", monospace !important;
+  }
+}
